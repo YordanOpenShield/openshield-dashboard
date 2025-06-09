@@ -80,7 +80,7 @@ const AgentPage = async ({ params }: AgentPageProps) => {
             <h2 className="text-lg font-semibold mb-1">Assign New Task</h2>
             <p className="text-gray-500 text-sm">Select a job to assign to this agent.</p>
           </div>
-          <AssignTask agentId={agent.id} jobs={jobs} />
+          <AssignTask agentId={id} jobs={jobs} />
         </div>
       </div>
 
@@ -89,7 +89,6 @@ const AgentPage = async ({ params }: AgentPageProps) => {
           <div className="flex flex-1 flex-col gap-6 w-full">
             <div className="flex-1 shadow rounded-lg min-w-0 self-stretch md:self-auto">
               <h2 className="text-xl font-semibold mt-8 mb-4 px-4">Tools</h2>
-              <TasksTable tasks={tasks} jobNames={jobNames} /> {/* TODO: Replace with tools table */}
             </div>
             <div className="flex-1 shadow rounded-lg min-w-0 self-stretch md:self-auto">
               <h2 className="text-xl font-semibold mt-8 mb-4 px-4">Tasks</h2>
