@@ -8,6 +8,9 @@ export async function Navbar() {
     headers: await headers(),
   });
 
+  const role = (session?.user as any)?.role ?? "user";
+  const isAdmin = role === "admin" || role === "owner";
+
   return (
     <nav className="fixed top-0 w-full bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/10 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -27,6 +30,14 @@ export async function Navbar() {
                 >
                   Dashboard
                 </Link>
+                {isAdmin && (
+                  <Link
+                    href="/admin/users"
+                    className="text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200"
+                  >
+                    Admin
+                  </Link>
+                )}
               </div>
             )}
           </div>
