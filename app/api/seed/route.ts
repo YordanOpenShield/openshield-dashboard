@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { pgPool } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   // Only allow in development
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Create default user using Better Auth API
+    // Create default user (role field not allowed in signUpEmail)
     const result = await auth.api.signUpEmail({
       body: {
         name,
@@ -31,12 +32,24 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Promote the user to admin directly in the database
+    const client = await pgPool.connect();
+    try {
+      await client.query(
+        `UPDATE "user" SET role = 'admin' WHERE id = $1`,
+        [result.user.id]
+      );
+    } finally {
+      client.release();
+    }
+
     return NextResponse.json(
       {
         message: "Default user created successfully",
         user: {
           email: result.user.email,
           name: result.user.name,
+          role: "admin",
         },
       },
       { status: 201 }
@@ -50,6 +63,18 @@ export async function POST(request: NextRequest) {
       error?.message?.includes("unique constraint") ||
       error?.code === "23505"
     ) {
+      // User exists — promote to admin if not already
+      if (error?.message?.includes("already exists")) {
+        const client = await pgPool.connect();
+        try {
+          await client.query(
+            `UPDATE "user" SET role = 'admin' WHERE email = $1`,
+            [email]
+          );
+        } finally {
+          client.release();
+        }
+      }
       return NextResponse.json(
         { message: "Default user already exists" },
         { status: 200 }
@@ -57,7 +82,7 @@ export async function POST(request: NextRequest) {
     }
     
     return NextResponse.json(
-      { error: error?.message || "Failed to create default user" },
+      { error: error?.message || "Failed to create default user", details: error?.cause || error?.stack },
       { status: 500 }
     );
   }

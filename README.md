@@ -71,7 +71,9 @@ Or Bash/curl:
 curl -X POST http://localhost:3000/api/init-db
 ```
 
-### 5. (Optional) Create a default user
+### 5. Create a default user
+
+**Registration is disabled.** Users can only be created via the seed endpoint.
 
 Default user credentials are configured in `.env.local`:
 - `DEFAULT_USER_EMAIL` - The email address (default: admin@example.com)
@@ -89,6 +91,8 @@ Or Bash/curl:
 ```bash
 curl -X POST http://localhost:3000/api/seed
 ```
+
+Then log in at http://localhost:3000/login with the configured credentials.
 
 ### 5. Run the development server
 
