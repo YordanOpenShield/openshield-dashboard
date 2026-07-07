@@ -2,22 +2,30 @@ import { betterAuth } from "better-auth";
 import { admin as adminPlugin } from "better-auth/plugins";
 import { sso } from "@better-auth/sso";
 import { pgPool } from "./db";
-import { ac, admin as adminRole, user as userRole } from "./permissions";
+import { ac, loadRolesFromDb } from "./permissions";
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+} from "./email";
 
 /**
- * Parse the SSO_ADMIN_ROLES env var into a set of lowercase role names.
+ * Parse the SSO_ROLE_MAP env var into a mapping of IdP role → app role.
+ * Format: comma-separated idp_role=app_role pairs.
+ * Example: "admin=admin,openshield-admin=admin,viewer=viewer"
+ *
+ * IdP roles not in the map are ignored. App roles that don't have
+ * a corresponding custom role in the DB are also ignored by the RBAC.
  */
-function getAdminRoleSet(): Set<string> {
-  const raw = process.env.SSO_ADMIN_ROLES ?? "admin,openshield-admin";
-  return new Set(raw.split(",").map((r) => r.trim().toLowerCase()));
-}
-
-/**
- * Determine whether any of the IdP roles qualifies for app-level admin.
- */
-function isIdpAdmin(idpRoles: string[]): boolean {
-  const adminRoles = getAdminRoleSet();
-  return idpRoles.some((role) => adminRoles.has(role.toLowerCase()));
+function getRoleMap(): Map<string, string> {
+  const raw = process.env.SSO_ROLE_MAP ?? "admin=admin";
+  const map = new Map<string, string>();
+  for (const entry of raw.split(",")) {
+    const [idpRole, appRole] = entry.split("=").map((s) => s.trim());
+    if (idpRole && appRole) {
+      map.set(idpRole.toLowerCase(), appRole);
+    }
+  }
+  return map;
 }
 
 /**
@@ -65,6 +73,16 @@ function extractKeycloakRoles(payload: Record<string, unknown>): string[] {
   return roles;
 }
 
+/**
+ * Load all role definitions from the custom_roles table in the database.
+ * Roles are purely permission wrappers — there are no built-in roles.
+ * Every role is created, edited, and deleted through the admin UI.
+ *
+ * At build time the DB won't be available, so we default to an empty set.
+ * Changes to role definitions (permissions) take effect on server restart.
+ */
+const _roles = await loadRolesFromDb().catch(() => null) ?? {};
+
 export const auth = betterAuth({
   database: pgPool,
   baseURL: process.env.BETTER_AUTH_URL,
@@ -81,6 +99,41 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
+    sendResetPassword: async ({ user, url }) => {
+      // Only allow password reset for email/password (credential) users.
+      // SSO-only users don't have a local password to reset.
+      const client = await pgPool.connect();
+      try {
+        const result = await client.query(
+          `SELECT 1 FROM account WHERE "userId" = $1 AND "providerId" = 'credential' LIMIT 1`,
+          [user.id]
+        );
+        if (result.rowCount === 0) {
+          console.info(
+            `[auth] Password reset blocked for ${user.email}: no credential account found (SSO-only user)`
+          );
+          return;
+        }
+      } finally {
+        client.release();
+      }
+      await sendPasswordResetEmail(user.email, url);
+    },
+    resetPasswordTokenExpiresIn: 3600, // 1 hour
+    minPasswordLength: 8,
+    revokeSessionsOnPasswordReset: true,
+    onPasswordReset: async ({ user }) => {
+      console.info(`[auth] Password reset for user ${user.id}`);
+    },
+  },
+
+  emailVerification: {
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 3600, // 1 hour
+    sendVerificationEmail: async ({ user, url }) => {
+      await sendVerificationEmail(user.email, url);
+    },
   },
   socialProviders: {
     // Add social providers here if needed
@@ -91,14 +144,14 @@ export const auth = betterAuth({
   },
 
   plugins: [
-    // RBAC — defines user (read-only) and admin (full access) roles
+    // RBAC — all roles are custom permission wrappers stored in the DB.
+    // There are no built-in roles. Every user's permissions are determined
+    // by the custom roles assigned to them (comma-separated in user.role).
+    // Admins create/edit/delete roles and their permissions via the UI.
     adminPlugin({
       ac,
-      roles: {
-        user: userRole,
-        admin: adminRole,
-      },
-      adminRoles: ["admin"],
+      roles: _roles,
+      adminRoles: [],
       defaultRole: "user",
     }),
 
@@ -127,18 +180,21 @@ export const auth = betterAuth({
             : String(userInfo.roles).split(",").map((r) => r.trim());
         }
 
+        // Map IdP roles to app roles using SSO_ROLE_MAP, then fully replace.
+        // The IdP is the source of truth — any roles not in the map are dropped.
+        const roleMap = getRoleMap();
+        const appRoles = [...new Set(
+          idpRoles
+            .map((r) => roleMap.get(r.toLowerCase()))
+            .filter((r): r is string => r !== undefined)
+        )];
+
         const client = await pgPool.connect();
         try {
-          if (isIdpAdmin(idpRoles)) {
-            await client.query(`UPDATE "user" SET role = 'admin' WHERE id = $1`, [user.id]);
-          } else {
-            // Ensure the user is not an admin if they lack the IdP role
-            // Only downgrades users who were provisioned via SSO
-            await client.query(
-              `UPDATE "user" SET role = 'user' WHERE id = $1 AND role = 'admin'`,
-              [user.id]
-            );
-          }
+          await client.query(
+            `UPDATE "user" SET role = $1 WHERE id = $2`,
+            [appRoles.join(",") || null, user.id]
+          );
         } finally {
           client.release();
         }

@@ -2,14 +2,17 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { SignOutButton } from "./sign-out-button";
+import { hasAnyAdminPermission } from "@/lib/permissions";
 
 export async function Navbar() {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
 
-  const role = (session?.user as any)?.role ?? "user";
-  const isAdmin = role === "admin" || role === "owner";
+  // Check if user has any admin permission to show the Admin link
+  const canAccessAdmin = session
+    ? await hasAnyAdminPermission(await headers())
+    : false;
 
   return (
     <nav className="fixed top-0 w-full bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/10 z-50">
@@ -30,7 +33,7 @@ export async function Navbar() {
                 >
                   Dashboard
                 </Link>
-                {isAdmin && (
+                {canAccessAdmin && (
                   <Link
                     href="/admin/users"
                     className="text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200"

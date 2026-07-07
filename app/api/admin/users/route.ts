@@ -1,52 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { pgPool } from "@/lib/db";
+import { requirePermission } from "@/lib/permissions";
 
 /**
  * GET /api/admin/users
  *
  * List all users with optional search, pagination, and sorting.
- * Uses better-auth's built-in admin plugin (listUsers endpoint)
- * which enforces RBAC authorization automatically.
+ * Uses requirePermission (DB-first) for authorization, then queries
+ * the database directly instead of relying on the cached admin plugin.
  */
 export async function GET(request: NextRequest) {
+  const perm = await requirePermission({ user: ["list"] });
+  if (!perm.authorized) {
+    return NextResponse.json({ error: perm.error }, { status: perm.status! });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
-    const limit = searchParams.get("limit") ?? "20";
-    const offset = searchParams.get("offset") ?? "0";
+    const limit = parseInt(searchParams.get("limit") ?? "20");
+    const offset = parseInt(searchParams.get("offset") ?? "0");
     const searchValue = searchParams.get("search") || undefined;
     const sortBy = searchParams.get("sortBy") ?? "createdAt";
     const sortDirection = (searchParams.get("sortDirection") ?? "desc") as "asc" | "desc";
 
-    const response = await auth.api.listUsers({
-      headers: await headers(),
-      query: {
+    const client = await pgPool.connect();
+    try {
+      let whereClause = "";
+      const params: any[] = [];
+      let paramIdx = 1;
+
+      if (searchValue) {
+        whereClause = `WHERE (email ILIKE $${paramIdx} OR name ILIKE $${paramIdx})`;
+        params.push(`%${searchValue}%`);
+        paramIdx++;
+      }
+
+      const orderClause = `ORDER BY "${sortBy}" ${sortDirection === "desc" ? "DESC" : "ASC"}`;
+
+      const countResult = await client.query(
+        `SELECT COUNT(*) as total FROM "user" ${whereClause}`,
+        params
+      );
+      const total = parseInt(countResult.rows[0].total);
+
+      const dataResult = await client.query(
+        `SELECT id, email, "emailVerified", name, image, role, "createdAt", "updatedAt", banned, "banReason", "banExpires" FROM "user" ${whereClause} ${orderClause} LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+        [...params, limit, offset]
+      );
+
+      return NextResponse.json({
+        users: dataResult.rows,
+        total,
         limit,
         offset,
-        searchValue,
-        searchField: searchValue ? "email" : undefined,
-        searchOperator: searchValue ? "contains" : undefined,
-        sortBy,
-        sortDirection,
-      },
-    });
-
-    return NextResponse.json(response);
+      });
+    } finally {
+      client.release();
+    }
   } catch (error: any) {
     console.error("Error listing users:", error);
-
-    // better-auth admin plugin uses statusCode for numeric HTTP status
-    const statusCode = error?.statusCode ?? error?.status;
-    if (statusCode === 403 || statusCode === 401) {
-      return NextResponse.json(
-        { error: error?.body?.message || "Unauthorized. Admin access required." },
-        { status: statusCode }
-      );
-    }
-
     return NextResponse.json(
-      { error: error?.body?.message || error?.message || "Failed to list users" },
-      { status: statusCode || 500 }
+      { error: error?.message || "Failed to list users" },
+      { status: 500 }
     );
   }
 }
@@ -60,7 +77,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, email, password, role } = body;
+    const { name, email, password } = body;
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -75,7 +92,6 @@ export async function POST(request: NextRequest) {
         name,
         email,
         password,
-        role: role || "user",
       },
     });
 

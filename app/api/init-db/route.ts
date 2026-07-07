@@ -72,6 +72,40 @@ export async function POST(request: NextRequest) {
       )
     `);
 
+    // Custom roles table for dynamic role management
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "custom_roles" (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(100) NOT NULL UNIQUE,
+        description TEXT,
+        permissions JSONB NOT NULL DEFAULT '{}',
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Junction table for user custom roles
+    // Note: "user".id is TEXT (set by better-auth), so user_id must be TEXT too
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "user_roles" (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+        role_id UUID NOT NULL REFERENCES "custom_roles"(id) ON DELETE CASCADE,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, role_id)
+      )
+    `);
+
+    // Seed default role definitions (idempotent — ON CONFLICT does nothing).
+    // These are regular roles stored in custom_roles, fully editable and
+    // deletable through the admin UI like any other role.
+    await client.query(`
+      INSERT INTO custom_roles (name, description, permissions) VALUES
+        ('user', 'Default role for regular users. Read-only access to dashboard.', '{"dashboard": ["read"]}'::jsonb),
+        ('admin', 'Full administrative access. Complete control over users, roles, sessions, SSO, and dashboard.', '{"user": ["create", "list", "set-role", "ban", "impersonate", "delete", "set-password", "set-email", "get", "update"], "session": ["list", "revoke"], "roles": ["list", "create", "update", "delete"], "sso": ["read", "update"], "dashboard": ["read"]}'::jsonb)
+      ON CONFLICT (name) DO NOTHING
+    `);
+
     return NextResponse.json(
       { message: "Database initialized successfully" },
       { status: 200 }

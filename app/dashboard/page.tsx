@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { requirePermission } from "@/lib/permissions";
 
 export default async function DashboardPage() {
   const session = await auth.api.getSession({
@@ -11,8 +12,10 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const role = (session.user as any).role ?? "user";
-  const isAdmin = role === "admin" || role === "owner";
+  const hdrs = await headers();
+  const canViewUsers = (await requirePermission({ user: ["list"] }, hdrs)).authorized;
+  const canManageSettings = (await requirePermission({ settings: ["update"] }, hdrs)).authorized;
+  const roles = (session.user as any).role?.split(",").filter(Boolean) ?? [];
 
   return (
     <div className="flex flex-col flex-1 bg-[#0a0a0a] pt-16">
@@ -26,13 +29,24 @@ export default async function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${
-              isAdmin
-                ? "bg-violet-500/10 border-violet-500/30 text-violet-400"
-                : "bg-blue-500/10 border-blue-500/30 text-blue-400"
-            }`}>
-              {role}
-            </span>
+            <div className="flex flex-wrap gap-1">
+              {roles.length === 0 ? (
+                <span className="text-xs text-gray-600">No roles</span>
+              ) : (
+                roles.map((r: string) => (
+                  <span
+                    key={r}
+                    className={`text-xs font-medium px-2.5 py-1 rounded-full border ${
+                      r === "admin" || canViewUsers
+                        ? "bg-violet-500/10 border-violet-500/30 text-violet-400"
+                        : "bg-blue-500/10 border-blue-500/30 text-blue-400"
+                    }`}
+                  >
+                    {r}
+                  </span>
+                ))
+              )}
+            </div>
           </div>
         </div>
 
@@ -40,7 +54,7 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           {[
             { label: "Status", value: "Active", color: "text-green-400" },
-            { label: "Role", value: role.charAt(0).toUpperCase() + role.slice(1), color: isAdmin ? "text-violet-400" : "text-blue-400" },
+            { label: "Roles", value: roles.length > 0 ? roles.join(", ") : "—", color: canViewUsers ? "text-violet-400" : "text-blue-400" },
             { label: "Member Since", value: new Date(session.user.createdAt ?? "").toLocaleDateString(), color: "text-gray-400" },
           ].map((stat) => (
             <div
@@ -75,7 +89,7 @@ export default async function DashboardPage() {
             {[
               { label: "Name", value: session.user.name },
               { label: "Email", value: session.user.email },
-              { label: "Role", value: role },
+              { label: "Roles", value: roles.length > 0 ? roles.join(", ") : "—" },
               { label: "User ID", value: session.user.id },
             ].map((field) => (
               <div
@@ -91,8 +105,8 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Admin Section — only visible to admins */}
-        {isAdmin && (
+        {/* Admin Section — visible to users with admin permissions */}
+        {canViewUsers && (
           <div className="bg-[#111111]/80 backdrop-blur-md border border-violet-500/20 rounded-lg p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
@@ -105,7 +119,7 @@ export default async function DashboardPage() {
                   Admin Controls
                 </h2>
                 <p className="text-sm text-gray-500">
-                  Full read/write access granted
+                  You have user management access
                 </p>
               </div>
             </div>

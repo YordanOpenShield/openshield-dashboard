@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -22,6 +23,31 @@ interface UsersResponse {
   total: number;
   limit: number;
   offset: number;
+}
+
+interface CustomRole {
+  id: string;
+  name: string;
+  description: string | null;
+  permissions: Record<string, string[]>;
+}
+
+interface UserRolesResponse {
+  userId: string;
+  builtInRole: string;
+  customRoles: CustomRole[];
+}
+
+interface UserSession {
+  id: string;
+  userId: string;
+  token: string;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  impersonatedBy?: string | null;
 }
 
 // ─── Modal Component ─────────────────────────────────────────────────────────
@@ -120,19 +146,53 @@ export default function AdminUsersPage() {
   const [createName, setCreateName] = useState("");
   const [createEmail, setCreateEmail] = useState("");
   const [createPassword, setCreatePassword] = useState("");
-  const [createRole, setCreateRole] = useState<"user" | "admin">("user");
   const [createLoading, setCreateLoading] = useState(false);
 
   // Edit modal state
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  const [editRole, setEditRole] = useState<"user" | "admin">("user");
   const [editLoading, setEditLoading] = useState(false);
 
   // Delete confirmation state
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Ban/unban state
+  const [banningUser, setBanningUser] = useState<User | null>(null);
+  const [banReason, setBanReason] = useState("");
+  const [banLoading, setBanLoading] = useState(false);
+
+  // Custom roles state
+  const [allCustomRoles, setAllCustomRoles] = useState<CustomRole[]>([]);
+  const [userCustomRoleIds, setUserCustomRoleIds] = useState<Set<string>>(new Set());
+  const [rolesLoading, setRolesLoading] = useState(false);
+
+  // Permission state for gating action buttons
+  const [perms, setPerms] = useState({ canEdit: false, canBan: false, canDelete: false });
+
+  // Fetch permissions on mount
+  useEffect(() => {
+    async function loadPerms() {
+      const [editRes, banRes, delRes] = await Promise.all([
+        fetch("/api/admin/check-permission?resource=user&action=update"),
+        fetch("/api/admin/check-permission?resource=user&action=ban"),
+        fetch("/api/admin/check-permission?resource=user&action=delete"),
+      ]);
+      const [edit, ban, del] = await Promise.all([
+        editRes.json().then((r) => r.authorized).catch(() => false),
+        banRes.json().then((r) => r.authorized).catch(() => false),
+        delRes.json().then((r) => r.authorized).catch(() => false),
+      ]);
+      setPerms({ canEdit: edit, canBan: ban, canDelete: del });
+    }
+    loadPerms();
+  }, []);
+
+  // Sessions state
+  const [userSessions, setUserSessions] = useState<UserSession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [revokingSession, setRevokingSession] = useState<string | null>(null);
 
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -177,7 +237,6 @@ export default function AdminUsersPage() {
           name: createName,
           email: createEmail,
           password: createPassword,
-          role: createRole,
         }),
       });
 
@@ -191,7 +250,6 @@ export default function AdminUsersPage() {
       setCreateName("");
       setCreateEmail("");
       setCreatePassword("");
-      setCreateRole("user");
       fetchUsers();
     } catch (err: any) {
       setToast({ message: err.message || "Failed to create user", type: "error" });
@@ -202,11 +260,45 @@ export default function AdminUsersPage() {
 
   // ─── Update user ───────────────────────────────────────────────────────────
 
-  const openEdit = (user: User) => {
+  const openEdit = async (user: User) => {
     setEditingUser(user);
     setEditName(user.name ?? "");
     setEditEmail(user.email);
-    setEditRole(user.role as "user" | "admin");
+
+    // Fetch all roles and determine which ones are assigned
+    setRolesLoading(true);
+    try {
+      const rolesRes = await fetch("/api/admin/roles");
+      if (rolesRes.ok) {
+        const rolesData = await rolesRes.json();
+        const allRoles: CustomRole[] = rolesData.roles ?? [];
+        setAllCustomRoles(allRoles);
+        // Determine assigned role IDs from the user.role column (comma-separated)
+        const assignedRoleNames = (user.role ?? "").split(",").map((r) => r.trim()).filter(Boolean);
+        const assignedIds = new Set(
+          allRoles.filter((r) => assignedRoleNames.includes(r.name)).map((r) => r.id)
+        );
+        setUserCustomRoleIds(assignedIds);
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setRolesLoading(false);
+    }
+
+    // Fetch user sessions
+    setSessionsLoading(true);
+    try {
+      const sessionsRes = await fetch(`/api/admin/users/${user.id}/sessions`);
+      if (sessionsRes.ok) {
+        const sessionsData = await sessionsRes.json();
+        setUserSessions(sessionsData.sessions ?? []);
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setSessionsLoading(false);
+    }
   };
 
   const handleEdit = async (e: React.FormEvent) => {
@@ -220,7 +312,6 @@ export default function AdminUsersPage() {
         body: JSON.stringify({
           name: editName,
           email: editEmail,
-          role: editRole,
         }),
       });
 
@@ -236,6 +327,99 @@ export default function AdminUsersPage() {
       setToast({ message: err.message || "Failed to update user", type: "error" });
     } finally {
       setEditLoading(false);
+    }
+  };
+
+  // ─── Toggle role ───────────────────────────────────────────────────────────
+
+  const handleToggleRole = async (roleId: string, assign: boolean) => {
+    if (!editingUser) return;
+
+    // Find the role name
+    const role = allCustomRoles.find((r) => r.id === roleId);
+    if (!role) return;
+
+    // Optimistic update: update both the checked set and the displayed role string
+    const newSet = new Set(userCustomRoleIds);
+    if (assign) newSet.add(roleId);
+    else newSet.delete(roleId);
+    setUserCustomRoleIds(newSet);
+
+    // Update the local editing user's role string for immediate feedback
+    const currentRoles = (editingUser.role ?? "").split(",").map((r) => r.trim()).filter(Boolean);
+    const updatedRoles = assign
+      ? [...new Set([...currentRoles, role.name])]
+      : currentRoles.filter((r) => r !== role.name);
+    setEditingUser({ ...editingUser, role: updatedRoles.join(",") });
+
+    try {
+      const url = assign
+        ? `/api/admin/users/${editingUser.id}/roles`
+        : `/api/admin/users/${editingUser.id}/roles?roleId=${roleId}`;
+      const res = await fetch(url, {
+        method: assign ? "POST" : "DELETE",
+        headers: assign ? { "Content-Type": "application/json" } : undefined,
+        body: assign ? JSON.stringify({ roleId }) : undefined,
+      });
+
+      if (!res.ok) {
+        // Revert on failure
+        setUserCustomRoleIds(new Set(userCustomRoleIds));
+        setEditingUser({ ...editingUser, role: currentRoles.join(",") });
+        const err = await res.json();
+        throw new Error(err.error ?? `Failed to ${assign ? "assign" : "remove"} role`);
+      }
+
+      setToast({
+        message: `Role "${role.name}" ${assign ? "assigned" : "removed"} successfully`,
+        type: "success",
+      });
+    } catch (err: any) {
+      setToast({ message: err.message || "Failed to update roles", type: "error" });
+    }
+  };
+
+  // ─── Revoke session ────────────────────────────────────────────────────────
+
+  const handleRevokeSession = async (sessionToken: string) => {
+    setRevokingSession(sessionToken);
+    try {
+      const res = await fetch(
+        `/api/admin/users/${editingUser!.id}/sessions?sessionToken=${encodeURIComponent(sessionToken)}`,
+        { method: "DELETE" }
+      );
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed to revoke session");
+      }
+
+      setUserSessions((prev) => prev.filter((s) => s.token !== sessionToken));
+      setToast({ message: "Session revoked successfully", type: "success" });
+    } catch (err: any) {
+      setToast({ message: err.message || "Failed to revoke session", type: "error" });
+    } finally {
+      setRevokingSession(null);
+    }
+  };
+
+  const handleRevokeAllSessions = async () => {
+    if (!editingUser) return;
+    try {
+      const res = await fetch(
+        `/api/admin/users/${editingUser.id}/sessions?revokeAll=true`,
+        { method: "DELETE" }
+      );
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed to revoke sessions");
+      }
+
+      setUserSessions([]);
+      setToast({ message: "All sessions revoked", type: "success" });
+    } catch (err: any) {
+      setToast({ message: err.message || "Failed to revoke sessions", type: "error" });
     }
   };
 
@@ -261,6 +445,62 @@ export default function AdminUsersPage() {
       setToast({ message: err.message || "Failed to delete user", type: "error" });
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  // ─── Ban / Unban user ──────────────────────────────────────────────────────
+
+  const openBan = (user: User) => {
+    setBanningUser(user);
+    setBanReason(user.banReason ?? "");
+  };
+
+  const handleBan = async () => {
+    if (!banningUser) return;
+    setBanLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${banningUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          banned: true,
+          banReason: banReason || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed to ban user");
+      }
+
+      setToast({ message: `${banningUser.name || banningUser.email} has been banned`, type: "success" });
+      setBanningUser(null);
+      setBanReason("");
+      fetchUsers();
+    } catch (err: any) {
+      setToast({ message: err.message || "Failed to ban user", type: "error" });
+    } finally {
+      setBanLoading(false);
+    }
+  };
+
+  const handleUnban = async (user: User) => {
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ banned: false, banReason: null }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed to unban user");
+      }
+
+      setToast({ message: `${user.name || user.email} has been unbanned`, type: "success" });
+      fetchUsers();
+    } catch (err: any) {
+      setToast({ message: err.message || "Failed to unban user", type: "error" });
     }
   };
 
@@ -390,15 +630,29 @@ export default function AdminUsersPage() {
                       {user.email}
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full border ${
-                          user.role === "admin"
-                            ? "bg-violet-500/10 border-violet-500/30 text-violet-400"
-                            : "bg-blue-500/10 border-blue-500/30 text-blue-400"
-                        }`}
-                      >
-                        {user.role}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {user.role
+                          ? user.role.split(",").map((r) => {
+                              const trimmed = r.trim();
+                              if (!trimmed) return null;
+                              const isAdmin = trimmed === "admin";
+                              return (
+                                <span
+                                  key={trimmed}
+                                  className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full border ${
+                                    isAdmin
+                                      ? "bg-violet-500/10 border-violet-500/30 text-violet-400"
+                                      : trimmed === "user"
+                                      ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
+                                      : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                                  }`}
+                                >
+                                  {trimmed}
+                                </span>
+                              );
+                            })
+                          : <span className="text-xs text-gray-600">—</span>}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       {user.banned ? (
@@ -418,19 +672,45 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(user)}
-                          className="p-1.5 text-gray-500 hover:text-gray-200 hover:bg-white/5 rounded-md transition-all duration-200"
-                          title="Edit user"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeletingUser(user)}
+                        {perms.canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => openEdit(user)}
+                            className="p-1.5 text-gray-500 hover:text-gray-200 hover:bg-white/5 rounded-md transition-all duration-200"
+                            title="Edit user"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                            </svg>
+                          </button>
+                        )}
+                        {perms.canBan && (user.banned ? (
+                          <button
+                            type="button"
+                            onClick={() => handleUnban(user)}
+                            className="p-1.5 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-md transition-all duration-200"
+                            title="Unban user"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 3.75H6.912a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H15M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859M12 3v8.25m0 0l-3-3m3 3l3-3" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => openBan(user)}
+                            className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all duration-200"
+                            title="Ban user"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                            </svg>
+                          </button>
+                        ))}
+                        {perms.canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => setDeletingUser(user)}
                           className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all duration-200"
                           title="Delete user"
                         >
@@ -438,6 +718,7 @@ export default function AdminUsersPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                           </svg>
                         </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -520,19 +801,10 @@ export default function AdminUsersPage() {
               placeholder="••••••••"
             />
           </div>
-          <div>
-            <label htmlFor="create-role" className="block text-sm font-medium text-gray-300 mb-1.5">
-              Role
-            </label>
-            <select
-              id="create-role"
-              value={createRole}
-              onChange={(e) => setCreateRole(e.target.value as "user" | "admin")}
-              className="block w-full bg-[#0d0d0d] border border-white/10 rounded-lg px-3 py-2.5 text-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all duration-200"
-            >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
+          <div className="bg-[#0d0d0d] border border-white/10 rounded-lg p-3">
+            <p className="text-xs text-gray-500">
+              Users are created without roles. You can assign roles after creation by editing the user.
+            </p>
           </div>
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
@@ -587,19 +859,114 @@ export default function AdminUsersPage() {
             />
           </div>
           <div>
-            <label htmlFor="edit-role" className="block text-sm font-medium text-gray-300 mb-1.5">
-              Role
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Roles
+              <span className="text-xs text-gray-500 font-normal ml-2">(toggle to assign or remove)</span>
             </label>
-            <select
-              id="edit-role"
-              value={editRole}
-              onChange={(e) => setEditRole(e.target.value as "user" | "admin")}
-              className="block w-full bg-[#0d0d0d] border border-white/10 rounded-lg px-3 py-2.5 text-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all duration-200"
-            >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
+            {rolesLoading ? (
+              <div className="bg-[#0d0d0d] border border-white/10 rounded-lg p-4">
+                <div className="h-4 bg-white/5 rounded animate-pulse w-3/4" />
+              </div>
+            ) : allCustomRoles.length === 0 ? (
+              <div className="bg-[#0d0d0d] border border-white/10 rounded-lg p-4">
+                <p className="text-sm text-gray-500">No roles defined. <Link href="/admin/roles" className="text-violet-400 hover:text-violet-300 underline">Create one</Link>.</p>
+              </div>
+            ) : (
+              <div className="bg-[#0d0d0d] border border-white/10 rounded-lg p-3 space-y-1 max-h-60 overflow-y-auto">
+                {allCustomRoles.map((role) => {
+                  const isAssigned = userCustomRoleIds.has(role.id);
+                  return (
+                    <label
+                      key={role.id}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-all duration-150 ${
+                        isAssigned
+                          ? "bg-violet-500/10 border border-violet-500/20"
+                          : "hover:bg-white/[0.02] border border-transparent"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isAssigned}
+                        onChange={(e) => handleToggleRole(role.id, e.target.checked)}
+                        className="w-4 h-4 rounded border-white/20 bg-[#0d0d0d] text-violet-500 focus:ring-violet-500/50 focus:ring-2"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm text-gray-200 font-medium">{role.name}</span>
+                        {role.description && (
+                          <p className="text-xs text-gray-500 truncate">{role.description}</p>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-600 shrink-0">
+                        {Object.keys(role.permissions).length} resource{(Object.keys(role.permissions).length !== 1) ? "s" : ""}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
+          {/* Sessions */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-300">
+                Sessions
+              </label>
+              {userSessions.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handleRevokeAllSessions}
+                  className="text-xs text-red-400 hover:text-red-300 font-medium transition-colors duration-200"
+                >
+                  Revoke all
+                </button>
+              )}
+            </div>
+            {sessionsLoading ? (
+              <div className="bg-[#0d0d0d] border border-white/10 rounded-lg p-4">
+                <div className="h-4 bg-white/5 rounded animate-pulse w-2/3" />
+              </div>
+            ) : userSessions.length === 0 ? (
+              <div className="bg-[#0d0d0d] border border-white/10 rounded-lg p-4">
+                <p className="text-sm text-gray-500">No active sessions</p>
+              </div>
+            ) : (
+              <div className="bg-[#0d0d0d] border border-white/10 rounded-lg divide-y divide-white/5 max-h-48 overflow-y-auto">
+                {userSessions.map((session) => (
+                  <div key={session.id} className="flex items-start gap-3 px-3 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
+                        <span className="text-xs text-gray-400 font-mono truncate">
+                          {session.ipAddress || "Unknown IP"}
+                        </span>
+                      </div>
+                      {session.userAgent && (
+                        <p className="text-xs text-gray-600 truncate mt-0.5 pl-[14px]">
+                          {session.userAgent}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-600 mt-0.5 pl-[14px]">
+                        Created {new Date(session.createdAt).toLocaleDateString()} · Expires{" "}
+                        {new Date(session.expiresAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {!session.impersonatedBy && (
+                      <button
+                        type="button"
+                        onClick={() => handleRevokeSession(session.token)}
+                        disabled={revokingSession === session.token}
+                        className="text-xs text-gray-500 hover:text-red-400 disabled:opacity-40 shrink-0 mt-0.5 transition-colors duration-200"
+                      >
+                        {revokingSession === session.token ? "Revoking..." : "Revoke"}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
@@ -648,6 +1015,51 @@ export default function AdminUsersPage() {
               className="px-4 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-500/50"
             >
               {deleteLoading ? "Deleting..." : "Delete User"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ─── Ban User Modal ─────────────────────────────────────────────────── */}
+      <Modal
+        open={banningUser !== null}
+        onClose={() => { setBanningUser(null); setBanReason(""); }}
+        title={`Ban User — ${banningUser?.name || banningUser?.email || ""}`}
+      >
+        <div className="space-y-4">
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+            <p className="text-sm text-red-400">
+              Banning this user will immediately revoke all their active sessions and prevent them from signing in.
+            </p>
+          </div>
+          <div>
+            <label htmlFor="ban-reason" className="block text-sm font-medium text-gray-300 mb-1.5">
+              Reason (optional)
+            </label>
+            <input
+              id="ban-reason"
+              type="text"
+              value={banReason}
+              onChange={(e) => setBanReason(e.target.value)}
+              placeholder="e.g. Violation of terms of service"
+              className="block w-full bg-[#0d0d0d] border border-white/10 rounded-lg px-3 py-2.5 text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all duration-200"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => { setBanningUser(null); setBanReason(""); }}
+              className="px-4 py-2 text-sm text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleBan}
+              disabled={banLoading}
+              className="px-4 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-500/50"
+            >
+              {banLoading ? "Banning..." : "Ban User"}
             </button>
           </div>
         </div>

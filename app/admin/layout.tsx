@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AdminSidebarNav } from "@/components/admin-sidebar-nav";
+import { requirePermission, hasAnyAdminPermission } from "@/lib/permissions";
 
 export default async function AdminLayout({
   children,
@@ -17,12 +18,20 @@ export default async function AdminLayout({
     redirect("/login");
   }
 
-  const role = (session.user as any).role ?? "user";
-  const isAdmin = role === "admin" || role === "owner";
+  const hdrs = await headers();
 
-  if (!isAdmin) {
+  // Gate admin access — show if user has ANY admin-level permission
+  const canAccess = await hasAnyAdminPermission(hdrs);
+  if (!canAccess) {
     redirect("/dashboard");
   }
+
+  // Check specific permissions for sidebar visibility
+  const [canViewUsers, canViewRoles, canManageSettings] = await Promise.all([
+    requirePermission({ user: ["list"] }, hdrs),
+    requirePermission({ roles: ["list"] }, hdrs),
+    requirePermission({ sso: ["read"] }, hdrs),
+  ]);
 
   return (
     <div className="flex flex-1 bg-[#0a0a0a] pt-16">
@@ -34,7 +43,11 @@ export default async function AdminLayout({
           </p>
         </div>
 
-        <AdminSidebarNav />
+        <AdminSidebarNav
+          canViewUsers={canViewUsers.authorized}
+          canViewRoles={canViewRoles.authorized}
+          canManageSettings={canManageSettings.authorized}
+        />
 
         <div className="px-3 pb-3">
           <Link
@@ -56,7 +69,13 @@ export default async function AdminLayout({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm text-gray-300 truncate">{session.user.name}</p>
-              <p className="text-xs text-violet-400 truncate">Administrator</p>
+              <p className="text-xs text-violet-400 truncate">
+                {canViewUsers.authorized && canManageSettings.authorized
+                  ? "Full admin access"
+                  : canViewUsers.authorized
+                  ? "User management"
+                  : "Settings access"}
+              </p>
             </div>
           </div>
         </div>

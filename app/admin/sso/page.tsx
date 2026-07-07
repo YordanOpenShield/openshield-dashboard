@@ -11,7 +11,6 @@ interface SSOProvider {
   issuer: string;
   domain: string;
   organizationId: string | null;
-  domainVerified: boolean;
   oidcConfig?: {
     discoveryEndpoint: string;
     clientIdLastFour: string;
@@ -476,8 +475,12 @@ export default function AdminSSOPage() {
   const fetchProviders = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await authClient.sso.providers();
-      if (error) throw new Error(error.message || "Failed to fetch providers");
+      const res = await fetch("/api/admin/sso/providers");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to fetch providers");
+      }
+      const data = await res.json();
       setProviders((data?.providers ?? []) as SSOProvider[]);
     } catch (err: any) {
       setToast({ message: err.message || "Failed to load SSO providers", type: "error" });
@@ -644,9 +647,7 @@ export default function AdminSSOPage() {
     if (!editingProvider) return;
     setEditLoading(true);
     try {
-      const body: Record<string, any> = {
-        providerId: editForm.providerId,
-      };
+      const body: Record<string, any> = {};
       if (editForm.issuer !== editingProvider.issuer) body.issuer = editForm.issuer;
       if (editForm.domain !== editingProvider.domain) body.domain = editForm.domain;
 
@@ -696,8 +697,16 @@ export default function AdminSSOPage() {
         if (Object.keys(body.samlConfig).length === 0) delete body.samlConfig;
       }
 
-      const { error } = await authClient.sso.updateProvider(body as any);
-      if (error) throw new Error(error.message || "Failed to update provider");
+      const res = await fetch(`/api/admin/sso/providers/${editingProvider.providerId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to update provider");
+      }
 
       setToast({ message: "SSO provider updated successfully", type: "success" });
       setEditingProvider(null);
@@ -715,10 +724,14 @@ export default function AdminSSOPage() {
     if (!deletingProvider) return;
     setDeleteLoading(true);
     try {
-      const { error } = await authClient.sso.deleteProvider({
-        providerId: deletingProvider.providerId,
+      const res = await fetch(`/api/admin/sso/providers/${deletingProvider.providerId}`, {
+        method: "DELETE",
       });
-      if (error) throw new Error(error.message || "Failed to delete provider");
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to delete provider");
+      }
 
       setToast({ message: "SSO provider deleted successfully", type: "success" });
       setDeletingProvider(null);
@@ -773,7 +786,6 @@ export default function AdminSSOPage() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Domain</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Issuer</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -781,11 +793,11 @@ export default function AdminSSOPage() {
               {isLoading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <tr key={i}>
-                    {[0, 1, 2, 3, 4, 5].map((j) => (
+                    {[0, 1, 2, 3, 4].map((j) => (
                       <td key={j} className="px-4 py-3">
                         <div
                           className="h-4 bg-white/5 rounded animate-pulse"
-                          style={{ width: `${["35%", "20%", "30%", "40%", "25%", "15%"][j]}` }}
+                          style={{ width: `${["35%", "20%", "30%", "40%", "25%"][j]}` }}
                         />
                       </td>
                     ))}
@@ -793,7 +805,7 @@ export default function AdminSSOPage() {
                 ))
               ) : providers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-gray-500 text-sm">
+                  <td colSpan={5} className="px-4 py-12 text-center text-gray-500 text-sm">
                     <div className="flex flex-col items-center gap-3">
                       <svg className="w-10 h-10 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
@@ -851,19 +863,6 @@ export default function AdminSSOPage() {
                           ? provider.issuer.slice(0, 40) + "..."
                           : provider.issuer}
                       </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {provider.domainVerified ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-green-400">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                          Verified
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-yellow-400">
-                          <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-                          Unverified
-                        </span>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -1415,22 +1414,7 @@ export default function AdminSSOPage() {
                 <p className="text-xs text-gray-500 mb-1">Issuer</p>
                 <p className="text-sm text-gray-200 font-mono break-all">{detailProvider.issuer}</p>
               </div>
-              <div className="col-span-2 bg-[#0d0d0d] rounded-lg p-3">
-                <p className="text-xs text-gray-500 mb-1">Domain Verification</p>
-                <div className="flex items-center gap-2 mt-1">
-                  {detailProvider.domainVerified ? (
-                    <span className="inline-flex items-center gap-1.5 text-sm text-green-400">
-                      <span className="w-2 h-2 rounded-full bg-green-500" />
-                      Verified
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 text-sm text-yellow-400">
-                      <span className="w-2 h-2 rounded-full bg-yellow-500" />
-                      Not Verified
-                    </span>
-                  )}
-                </div>
-              </div>
+
             </div>
 
             {/* SP Metadata */}

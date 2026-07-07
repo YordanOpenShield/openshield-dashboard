@@ -236,84 +236,76 @@ The login page at `/login` has a dedicated "Continue with SSO" form below the em
 
 ### Architecture
 
-RBAC uses `better-auth`'s `admin` plugin with `createAccessControl` for authorization. Two roles are defined in `lib/permissions.ts`:
+All roles are **permission wrappers** stored in the `custom_roles` database table. There are no hardcoded built-in roles — even `user` and `admin` are regular DB rows, fully editable and deletable through the admin UI.
 
-| Role | Permissions |
-|------|-------------|
-| `user` | Read access to users and dashboard |
-| `admin` | Full CRUD on users, read dashboard, read/update settings |
+- **Role definitions** live in `custom_roles` table (name, description, permissions JSONB)
+- **Role assignments** are stored in the `user.role` column as comma-separated role names (e.g. `"admin"`, `"admin,moderator"`)
+- **Role definitions load at server startup** from the DB — changes require a restart to take effect
+- **New users** get the `defaultRole` ("user") assigned automatically
 
-### Permission Definitions (`lib/permissions.ts`)
+### Available Resources & Actions
 
-```ts
-import { createAccessControl } from "better-auth/plugins/access";
+Defined in `lib/permissions.ts`:
 
-const statement = {
-  user: ["read", "create", "update", "delete"],
-  dashboard: ["read"],
-  settings: ["read", "update"],
-};
-
-export const ac = createAccessControl(statement);
-
-export const admin = ac.newRole({
-  user: ["create", "read", "update", "delete"],
-  dashboard: ["read"],
-  settings: ["read", "update"],
-});
-
-export const user = ac.newRole({
-  user: ["read"],
-  dashboard: ["read"],
-  settings: [],
-});
-```
+| Resource | Actions | Purpose |
+|----------|---------|---------|
+| `user` | `create`, `list`, `get`, `update`, `delete`, `set-role`, `ban`, `impersonate`, `impersonate-admins`, `set-password`, `set-email` | User management (admin plugin internal) |
+| `session` | `list`, `revoke` | Session management (admin plugin internal) |
+| `roles` | `list`, `create`, `update`, `delete` | Role management |
+| `sso` | `read`, `update` | SSO provider management |
+| `dashboard` | `read` | Dashboard access |
 
 ### Server-Side Permission Checking
 
-Use `auth.api.hasPermission()` to check permissions in server components or API routes:
+Use `requirePermission()` from `@/lib/permissions` in API routes and server components:
 
 ```ts
-const admin = await auth.api.hasPermission({
-  headers: await headers(),
-  body: {
-    permission: {
-      user: ["create"],
-    },
-  },
-});
+import { requirePermission } from "@/lib/permissions";
+
+const auth = await requirePermission({ user: ["list"] });
+if (!auth.authorized) {
+  return NextResponse.json({ error: auth.error }, { status: auth.status });
+}
 ```
 
-### Client-Side Permission Checking
-
-Use `authClient.admin.hasPermission()` to check permissions from client components:
+Or inline in server components:
 
 ```ts
-const canCreate = await authClient.admin.hasPermission({
-  permission: {
-    user: ["create"],
-  },
-});
+const perm = await requirePermission({ settings: ["read"] }, await headers());
+if (!perm.authorized) redirect("/dashboard");
 ```
 
-### Role Checking in Components
+### Gating UI Elements by Permissions
 
-Access the user's role from the session object:
+The admin layout (`app/admin/layout.tsx`) checks for **either** `user: ["list"]` **or** `settings: ["read"]` to grant entry. The sidebar nav (`components/admin-sidebar-nav.tsx`) filters nav items based on the user's specific permissions:
 
-```ts
-const session = await auth.api.getSession({ headers: await headers() });
-const role = (session.user as any).role ?? "user";
-const isAdmin = role === "admin" || role === "owner";
-```
+- **Users** & **Roles** pages → requires `user: ["list"]`
+- **SSO Settings** page → requires `settings: ["read"]`
 
-### Seed Script
+The navbar (`components/navbar.tsx`) shows the "Admin" link when the user has either `user: ["list"]` or `settings: ["read"]`.
 
-The seed endpoint (`app/api/seed/route.ts`) creates the default user with `role: "admin"` via `auth.api.signUpEmail()` (cast with `as any` to bypass TypeScript — the admin plugin handles it at runtime).
+### Creating Roles
 
-### DB Migration
+Roles are created via the admin UI at `/admin/roles`. Each role bundles a set of resource → action pairs. When a role is assigned to a user, they gain the union of all permissions from all their roles.
 
-After enabling the admin plugin, run the migration to add the `role` column to the user table:
+### Seeded Roles
 
-```bash
-npx auth migrate
-```
+`POST /api/init-db` seeds two default roles (idempotent — they won't overwrite existing ones):
+
+| Role | Permissions |
+|------|-------------|
+| `user` | `dashboard: ["read"]` |
+| `admin` | `user: [all actions]`, `session: [list, revoke]`, `dashboard: ["read"]`, `settings: ["read", "update"]` |
+
+`POST /api/seed` additionally creates the `admin` role definition if missing and assigns it to the default admin user.
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `lib/permissions.ts` | Permission statement, `ac`, `loadRolesFromDb()`, `requirePermission()` |
+| `lib/auth.ts` | Loads roles from DB, configures admin plugin with `defaultRole: "user"` |
+| `app/api/admin/roles/*` | CRUD API for role definitions |
+| `app/api/admin/users/[id]/roles` | Assign/remove roles for a user, syncs to `user.role` column |
+
+---
