@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { runQuery, getAgentsList } from "@/lib/manager-client";
 import type { Agent } from "@/lib/manager-types";
@@ -12,6 +13,14 @@ interface Props {
 export function RunQueryButton({ queryId }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const bodyRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    bodyRef.current = document.body;
+  }, []);
+
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -23,6 +32,16 @@ export function RunQueryButton({ queryId }: Props) {
         .then((list) => setAgents(list))
         .catch(() => {});
     }
+  }, [open]);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
   }, [open]);
 
   const toggleAgent = (id: string) => {
@@ -79,10 +98,10 @@ export function RunQueryButton({ queryId }: Props) {
         Run
       </button>
 
-      {open && (
+      {open && mounted && bodyRef.current && createPortal(
         <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 pb-8 px-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="relative z-10 w-full max-w-lg bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
+          <div className="relative z-10 w-full max-w-lg bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6 overflow-y-auto" style={{ maxHeight: "calc(100vh - 10rem)" }}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-200">Run Query</h2>
               <button type="button" onClick={() => setOpen(false)} className="text-gray-500 hover:text-gray-300 transition-colors">
@@ -154,7 +173,8 @@ export function RunQueryButton({ queryId }: Props) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        bodyRef.current
       )}
     </>
   );

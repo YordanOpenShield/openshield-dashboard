@@ -67,8 +67,8 @@ export function EditQueryButton({ query }: Props) {
 
       {open && mounted && bodyRef.current && createPortal(
         <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 pb-8 px-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="relative z-10 w-full max-w-2xl bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
+          <div className="relative z-10 w-full max-w-2xl bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6 overflow-y-auto" style={{ maxHeight: "calc(100vh - 10rem)" }}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-200">Edit Query</h2>
               <button type="button" onClick={() => setOpen(false)} className="text-gray-500 hover:text-gray-300 transition-colors">

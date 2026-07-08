@@ -187,10 +187,10 @@ function Modal({
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 pb-8 px-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-2xl bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6 max-h-[85vh] overflow-y-auto">
+      <div className="relative z-10 w-full max-w-2xl bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6 overflow-y-auto" style={{ maxHeight: "calc(100vh - 10rem)" }}>
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-lg font-semibold text-gray-200">{title}</h2>
@@ -240,10 +240,10 @@ function ConfirmDialog({
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 pb-8 px-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-md bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6">
+      <div className="relative z-10 w-full max-w-md bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6 overflow-y-auto" style={{ maxHeight: "calc(100vh - 10rem)" }}>
         <h2 className="text-lg font-semibold text-gray-200 mb-2">{title}</h2>
         <p className="text-sm text-gray-400 mb-6">{message}</p>
         <div className="flex items-center justify-end gap-3">

@@ -15,7 +15,9 @@ export function SqlEditor({ value, onChange }: SqlEditorProps) {
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [suggestionIndex, setSuggestionIndex] = useState(-1);
-  const [suggestionPos, setSuggestionPos] = useState({ top: 0, left: 0, width: 0 });
+  const [suggestionTop, setSuggestionTop] = useState(0);
+  const [suggestionLeft, setSuggestionLeft] = useState(0);
+  const [suggestionWidth, setSuggestionWidth] = useState(360);
 
   // ─── Autocomplete logic ──────────────────────────────────────────────
 
@@ -28,12 +30,30 @@ export function SqlEditor({ value, onChange }: SqlEditorProps) {
     return match ? { word: match[1], start: pos - match[1].length } : { word: "", start: 0 };
   }, [value]);
 
-  /** Position the dropdown below the textarea — simple and reliable */
-  const positionBelowTextarea = useCallback(() => {
+  /** Position dropdown below textarea, or above if not enough room. Clamps to viewport edges. */
+  const positionDropdown = useCallback(() => {
     const ta = textareaRef.current;
-    if (!ta) return { top: 0, left: 0, width: 0 };
+    if (!ta) return { top: 0, left: 0, width: 360 };
     const rect = ta.getBoundingClientRect();
-    return { top: rect.bottom + 2, left: rect.left, width: Math.min(rect.width, 480) };
+    const width = Math.min(rect.width, 480);
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const estimatedHeight = 200; // max-h-52 = 208px
+    const gap = 4;
+    let top: number;
+
+    if (rect.bottom + estimatedHeight + gap < vh) {
+      // Room below — place below textarea
+      top = rect.bottom + gap;
+    } else {
+      // Not enough room below — place above textarea
+      top = Math.max(gap, rect.top - estimatedHeight - gap);
+    }
+
+    // Clamp left so the dropdown doesn't overflow the right edge
+    const left = Math.max(gap, Math.min(rect.left, vw - width - gap));
+
+    return { top, left, width };
   }, []);
 
   const updateSuggestions = useCallback(() => {
@@ -70,11 +90,18 @@ export function SqlEditor({ value, onChange }: SqlEditorProps) {
     if (matches.length > 0 && matches.length < 30) {
       setSuggestions(matches.slice(0, 12));
       setSuggestionIndex(-1);
-      setSuggestionPos(positionBelowTextarea());
+      // Position below textarea using viewport-relative coords
+      const ta = textareaRef.current;
+      if (ta) {
+        const rect = ta.getBoundingClientRect();
+        setSuggestionTop(rect.bottom + 2);
+        setSuggestionLeft(rect.left);
+        setSuggestionWidth(Math.min(rect.width, 480));
+      }
     } else {
       setSuggestions([]);
     }
-  }, [value, getWordBeforeCursor, positionBelowTextarea]);
+  }, [value, getWordBeforeCursor]);
 
   const applySuggestion = useCallback((suggestion: string) => {
     const ta = textareaRef.current;
@@ -186,11 +213,11 @@ export function SqlEditor({ value, onChange }: SqlEditorProps) {
         />
       </div>
 
-      {/* Autocomplete dropdown */}
+      {/* Autocomplete dropdown — fixed below textarea, outside modal overflow */}
       {suggestions.length > 0 && (
         <div
           className="fixed z-[110] bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl py-1 max-h-52 overflow-y-auto"
-          style={{ top: suggestionPos.top, left: suggestionPos.left, width: suggestionPos.width }}
+          style={{ top: suggestionTop, left: suggestionLeft, width: suggestionWidth }}
         >
           {suggestions.map((s, i) => (
             <button
