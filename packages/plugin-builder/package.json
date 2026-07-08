@@ -1,0 +1,33 @@
+{
+  "name": "@openshield/plugin-builder",
+  "version": "1.0.0",
+  "description": "OpenShield Dashboard Plugin Builder — compile and package plugins for the dashboard",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "plugin-builder": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["openshield", "plugin", "builder"],
+  "license": "MIT",
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "esbuild": "^0.25.0"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
