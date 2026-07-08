@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getQueryDetails, getQueryExecutionsList } from "@/lib/manager-client";
 import { RunQueryButton } from "./run-query-button";
+import { EditQueryButton } from "./edit-query-button";
 import { DeleteQueryButton } from "./delete-query-button";
 import { RefreshableSection } from "@/components/refreshable-section";
 
@@ -73,6 +74,7 @@ export default async function QueryDetailPage({
           </div>
           <div className="flex items-center gap-2">
             <RunQueryButton queryId={query.id} />
+            <EditQueryButton query={query} />
             <DeleteQueryButton queryId={query.id} />
           </div>
         </div>
