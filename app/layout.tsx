@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OpenShield - Better Auth Demo",
-  description: "Next.js app with Better Auth and PostgreSQL",
+  title: "OpenShield - Agent Manager",
+  description: "Dashboard for managing OpenShield agents, jobs, tasks, queries, and bulk operations.",
 };
 
 export default function RootLayout({

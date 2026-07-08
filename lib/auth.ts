@@ -8,6 +8,14 @@ import {
   sendPasswordResetEmail,
 } from "./email";
 
+// Suppress benign SAML library warning about missing SingleLogoutService.
+// Keycloak's metadata doesn't advertise SLO endpoints; the login flow works fine.
+const _origWarn = console.warn;
+console.warn = (...args: any[]) => {
+  if (typeof args[0] === "string" && args[0].includes("SingleLogoutService")) return;
+  _origWarn.apply(console, args);
+};
+
 /**
  * Parse the SSO_ROLE_MAP env var into a mapping of IdP role → app role.
  * Format: comma-separated idp_role=app_role pairs.
@@ -97,6 +105,17 @@ export const auth = betterAuth({
   // Uses better-auth defaults: expiresIn=7d, updateAge=1d
   // Role syncing happens at login time via provisionUser below.
 
+  // ── Account Linking ──────────────────────────────────────────────────────
+  // Allow SSO users with the same email as an existing local account
+  // to be linked automatically. This prevents "account_not_linked" errors.
+  account: {
+    accountLinking: {
+      enabled: true,
+      disableImplicitLinking: false,
+      trustedProviders: ["openshield-saml"],
+    },
+  },
+
   emailAndPassword: {
     enabled: true,
     sendResetPassword: async ({ user, url }) => {
@@ -174,11 +193,14 @@ export const auth = betterAuth({
         }
 
         // SAML — roles may come as an attribute in the SAML assertion
+        // via extraFields mapping (e.g., extraFields: { roles: "Role" })
         if (provider.samlConfig && userInfo?.roles) {
           idpRoles = Array.isArray(userInfo.roles)
             ? userInfo.roles
             : String(userInfo.roles).split(",").map((r) => r.trim());
         }
+
+        // No roles found — user stays with whatever role they have (defaults to 'user')
 
         // Map IdP roles to app roles using SSO_ROLE_MAP, then fully replace.
         // The IdP is the source of truth — any roles not in the map are dropped.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { authClient } from "@/lib/auth-client";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -73,6 +74,7 @@ interface SAMLFormData {
   mappingName: string;
   mappingFirstName: string;
   mappingLastName: string;
+  rolesAttribute: string;
 }
 
 interface ProviderFormData {
@@ -115,6 +117,7 @@ const defaultSAMLForm: SAMLFormData = {
   mappingName: "displayName",
   mappingFirstName: "firstName",
   mappingLastName: "lastName",
+  rolesAttribute: "Role",
 };
 
 const defaultForm: ProviderFormData = {
@@ -182,13 +185,13 @@ function Modal({
 }) {
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 pb-8 px-4">
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-2xl bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6 max-h-[85vh] overflow-y-auto">
+      <div className="relative z-10 w-full max-w-2xl bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6 max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-lg font-semibold text-gray-200">{title}</h2>
@@ -235,13 +238,13 @@ function ConfirmDialog({
 }) {
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 pb-8 px-4">
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-md bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6">
+      <div className="relative z-10 w-full max-w-md bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6">
         <h2 className="text-lg font-semibold text-gray-200 mb-2">{title}</h2>
         <p className="text-sm text-gray-400 mb-6">{message}</p>
         <div className="flex items-center justify-end gap-3">
@@ -266,7 +269,8 @@ function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -564,6 +568,7 @@ export default function AdminSSOPage() {
         mappingName: "displayName",
         mappingFirstName: "firstName",
         mappingLastName: "lastName",
+        rolesAttribute: "Role",
       },
     };
     setEditingProvider(provider);
@@ -610,6 +615,9 @@ export default function AdminSSOPage() {
           entryPoint: form.saml.entryPoint,
           cert: form.saml.cert,
           callbackUrl: form.saml.callbackUrl,
+          spMetadata: {
+            entityID: form.saml.audience || form.issuer,
+          },
           wantAssertionsSigned: form.saml.wantAssertionsSigned,
           authnRequestsSigned: form.saml.authnRequestsSigned,
           signatureAlgorithm: form.saml.signatureAlgorithm,
@@ -621,6 +629,9 @@ export default function AdminSSOPage() {
             name: form.saml.mappingName,
             firstName: form.saml.mappingFirstName,
             lastName: form.saml.mappingLastName,
+            extraFields: form.saml.rolesAttribute
+            ? { roles: form.saml.rolesAttribute }
+            : undefined,
           },
         };
         if (form.saml.audience) body.samlConfig.audience = form.saml.audience;
@@ -694,6 +705,23 @@ export default function AdminSSOPage() {
         if (saml.digestAlgorithm !== editingProvider.samlConfig.digestAlgorithm) {
           body.samlConfig.digestAlgorithm = saml.digestAlgorithm;
         }
+        if (saml.identifierFormat !== editingProvider.samlConfig.identifierFormat) {
+          body.samlConfig.identifierFormat = saml.identifierFormat;
+        }
+        if (saml.cert) {
+          body.samlConfig.cert = saml.cert;
+        }
+        // Always send attribute mapping so extraFields/rolesAttribute is synced
+        body.samlConfig.mapping = {
+          id: saml.mappingId,
+          email: saml.mappingEmail,
+          name: saml.mappingName,
+          firstName: saml.mappingFirstName,
+          lastName: saml.mappingLastName,
+          extraFields: saml.rolesAttribute
+            ? { roles: saml.rolesAttribute }
+            : undefined,
+        };
         if (Object.keys(body.samlConfig).length === 0) delete body.samlConfig;
       }
 
@@ -1181,6 +1209,9 @@ export default function AdminSSOPage() {
                 <FormField label="Last Name">
                   <Input value={form.saml.mappingLastName} onChange={(v) => updateSAMLForm("mappingLastName", v)} placeholder="lastName" />
                 </FormField>
+                <FormField label="Roles Attribute">
+                  <Input value={form.saml.rolesAttribute} onChange={(v) => updateSAMLForm("rolesAttribute", v)} placeholder="Role" />
+                </FormField>
               </div>
             </>
           )}
@@ -1295,23 +1326,23 @@ export default function AdminSSOPage() {
           {/* Editable SAML Config */}
           {editForm.type === "saml" && editingProvider?.samlConfig && (
             <>
-              <SectionHeader title="SAML Configuration" />
+              <SectionHeader title="SAML Configuration" description="SAML 2.0 identity provider settings" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField label="SSO Entry Point">
+                <FormField label="SSO Entry Point" description="IdP Single Sign-On URL">
                   <Input
                     value={editForm.saml.entryPoint}
                     onChange={(v) => updateEditSAMLForm("entryPoint", v)}
                     placeholder="https://idp.company.com/sso"
                   />
                 </FormField>
-                <FormField label="Callback URL">
+                <FormField label="Callback URL" description="SP Assertion Consumer Service URL">
                   <Input
                     value={editForm.saml.callbackUrl}
                     onChange={(v) => updateEditSAMLForm("callbackUrl", v)}
-                    placeholder="https://yourapp.com/api/auth/sso/saml2/callback/providerId"
+                    placeholder="http://localhost:3000/api/auth/sso/saml2/callback/providerId"
                   />
                 </FormField>
-                <FormField label="Audience">
+                <FormField label="Audience" description="(Optional) SP entity ID / audience">
                   <Input
                     value={editForm.saml.audience || ""}
                     onChange={(v) => updateEditSAMLForm("audience", v)}
@@ -1319,8 +1350,20 @@ export default function AdminSSOPage() {
                   />
                 </FormField>
               </div>
+
+              <FormField label="IdP Certificate (X.509)" description="PEM-encoded certificate from the identity provider. Leave blank to keep existing.">
+                <textarea
+                  value={editForm.saml.cert}
+                  onChange={(e) => updateEditSAMLForm("cert", e.target.value)}
+                  placeholder="Leave blank to keep existing certificate"
+                  required={false}
+                  rows={4}
+                  className="w-full bg-[#0d0d0d] border border-white/10 rounded-lg px-3 py-2.5 text-gray-200 placeholder:text-gray-600 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all duration-200"
+                />
+              </FormField>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField label="Signature Algorithm">
+                <FormField label="Signature Algorithm" description="Algorithm used for digital signatures">
                   <Select
                     value={editForm.saml.signatureAlgorithm}
                     onChange={(v) => updateEditSAMLForm("signatureAlgorithm", v)}
@@ -1332,7 +1375,7 @@ export default function AdminSSOPage() {
                     ]}
                   />
                 </FormField>
-                <FormField label="Digest Algorithm">
+                <FormField label="Digest Algorithm" description="Algorithm used for digest calculation">
                   <Select
                     value={editForm.saml.digestAlgorithm}
                     onChange={(v) => updateEditSAMLForm("digestAlgorithm", v)}
@@ -1344,7 +1387,20 @@ export default function AdminSSOPage() {
                     ]}
                   />
                 </FormField>
+                <FormField label="Name ID Format" description="Format of the SAML NameID">
+                  <Select
+                    value={editForm.saml.identifierFormat}
+                    onChange={(v) => updateEditSAMLForm("identifierFormat", v)}
+                    options={[
+                      { value: "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent", label: "Persistent" },
+                      { value: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress", label: "Email Address" },
+                      { value: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient", label: "Transient" },
+                      { value: "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified", label: "Unspecified" },
+                    ]}
+                  />
+                </FormField>
               </div>
+
               <div className="flex gap-6">
                 <Checkbox
                   checked={editForm.saml.wantAssertionsSigned}
@@ -1356,6 +1412,28 @@ export default function AdminSSOPage() {
                   onChange={(v) => updateEditSAMLForm("authnRequestsSigned", v)}
                   label="Sign authentication requests"
                 />
+              </div>
+
+              <SectionHeader title="Attribute Mapping" description="Map SAML attributes to user fields" />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <FormField label="User ID">
+                  <Input value={editForm.saml.mappingId} onChange={(v) => updateEditSAMLForm("mappingId", v)} placeholder="nameID" />
+                </FormField>
+                <FormField label="Email">
+                  <Input value={editForm.saml.mappingEmail} onChange={(v) => updateEditSAMLForm("mappingEmail", v)} placeholder="email" />
+                </FormField>
+                <FormField label="Display Name">
+                  <Input value={editForm.saml.mappingName} onChange={(v) => updateEditSAMLForm("mappingName", v)} placeholder="displayName" />
+                </FormField>
+                <FormField label="First Name">
+                  <Input value={editForm.saml.mappingFirstName} onChange={(v) => updateEditSAMLForm("mappingFirstName", v)} placeholder="firstName" />
+                </FormField>
+                <FormField label="Last Name">
+                  <Input value={editForm.saml.mappingLastName} onChange={(v) => updateEditSAMLForm("mappingLastName", v)} placeholder="lastName" />
+                </FormField>
+                <FormField label="Roles Attribute" description="SAML attribute name that contains roles">
+                  <Input value={editForm.saml.rolesAttribute} onChange={(v) => updateEditSAMLForm("rolesAttribute", v)} placeholder="Role" />
+                </FormField>
               </div>
             </>
           )}

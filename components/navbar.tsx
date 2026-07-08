@@ -26,20 +26,33 @@ export async function Navbar() {
               OpenShield
             </Link>
             {session && (
-              <div className="hidden md:flex ml-10 space-x-4">
+              <div className="hidden md:flex ml-8 space-x-1">
                 <Link
                   href="/dashboard"
-                  className="text-gray-400 hover:text-white hover:bg-white/5 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200"
+                  className="text-gray-400 hover:text-white hover:bg-white/5 px-2.5 py-2 rounded-md text-sm font-medium transition-all duration-200"
                 >
                   Dashboard
                 </Link>
+
+                {/* Manager sections */}
+                <span className="text-gray-600 self-center text-xs font-medium px-1 select-none">|</span>
+                <Link href="/agents" className="text-gray-400 hover:text-white hover:bg-white/5 px-2.5 py-2 rounded-md text-sm font-medium transition-all duration-200">Agents</Link>
+                <Link href="/jobs" className="text-gray-400 hover:text-white hover:bg-white/5 px-2.5 py-2 rounded-md text-sm font-medium transition-all duration-200">Jobs</Link>
+                <Link href="/tasks" className="text-gray-400 hover:text-white hover:bg-white/5 px-2.5 py-2 rounded-md text-sm font-medium transition-all duration-200">Tasks</Link>
+                <Link href="/queries" className="text-gray-400 hover:text-white hover:bg-white/5 px-2.5 py-2 rounded-md text-sm font-medium transition-all duration-200">Queries</Link>
+                <Link href="/groups" className="text-gray-400 hover:text-white hover:bg-white/5 px-2.5 py-2 rounded-md text-sm font-medium transition-all duration-200">Groups</Link>
+                <Link href="/bulk-operations" className="text-gray-400 hover:text-white hover:bg-white/5 px-2.5 py-2 rounded-md text-sm font-medium transition-all duration-200">Bulk Ops</Link>
+
                 {canAccessAdmin && (
-                  <Link
-                    href="/admin/users"
-                    className="text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200"
-                  >
-                    Admin
-                  </Link>
+                  <>
+                    <span className="text-gray-600 self-center text-xs font-medium px-1 select-none">|</span>
+                    <Link
+                      href="/admin/users"
+                      className="text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 px-2.5 py-2 rounded-md text-sm font-medium transition-all duration-200"
+                    >
+                      Admin
+                    </Link>
+                  </>
                 )}
               </div>
             )}

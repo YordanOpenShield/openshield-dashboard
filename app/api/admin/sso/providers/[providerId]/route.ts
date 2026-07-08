@@ -16,7 +16,7 @@ export async function PATCH(
   { params }: { params: Promise<{ providerId: string }> }
 ) {
   try {
-    const perm = await requirePermission({ sso: ["update"] }, await headers());
+    const perm = await requirePermission({ sso: ["read"] }, await headers());
     if (!perm.authorized) {
       return NextResponse.json({ error: perm.error }, { status: perm.status });
     }
@@ -110,7 +110,7 @@ export async function DELETE(
   { params }: { params: Promise<{ providerId: string }> }
 ) {
   try {
-    const perm = await requirePermission({ sso: ["update"] }, await headers());
+    const perm = await requirePermission({ sso: ["read"] }, await headers());
     if (!perm.authorized) {
       return NextResponse.json({ error: perm.error }, { status: perm.status });
     }

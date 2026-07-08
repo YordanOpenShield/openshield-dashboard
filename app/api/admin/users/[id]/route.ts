@@ -90,7 +90,7 @@ export async function DELETE(
 
       // Delete sessions, accounts, and the user (CASCADE should handle this,
       // but we do it explicitly for clarity)
-      await client.query(`DELETE FROM session WHERE user_id = $1`, [id]);
+      await client.query(`DELETE FROM session WHERE "userId" = $1`, [id]);
       await client.query(`DELETE FROM account WHERE "userId" = $1`, [id]);
       await client.query(`DELETE FROM "user" WHERE id = $1`, [id]);
 

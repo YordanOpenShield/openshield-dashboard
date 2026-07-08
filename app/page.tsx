@@ -26,7 +26,7 @@ export default async function Home() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-sm text-gray-400">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            Secure Admin Dashboard
+            Agent Manager Dashboard
           </div>
 
           {/* Hero Title */}
@@ -35,15 +35,13 @@ export default async function Home() {
               OpenShield
             </span>
             <br />
-            <span className="text-gray-100">Dashboard</span>
+            <span className="text-gray-100">Agent Manager</span>
           </h1>
 
           {/* Description */}
           <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed">
-            Secure admin panel built with{" "}
-            <span className="text-gray-200 font-medium">Better Auth</span> and{" "}
-            <span className="text-gray-200 font-medium">PostgreSQL</span>.
-            Manage your application with confidence.
+            Manage your agent fleet with real-time monitoring, job execution,
+            FleetDM-style queries, and bulk operations.
           </p>
 
           {/* CTA Buttons */}
