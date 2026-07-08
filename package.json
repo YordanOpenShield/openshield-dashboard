@@ -11,6 +11,7 @@
   "dependencies": {
     "@better-auth/sso": "^1.6.23",
     "@types/pg": "^8.20.0",
+    "adm-zip": "^0.5.18",
     "better-auth": "^1.6.23",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
@@ -18,10 +19,12 @@
     "nodemailer": "^9.0.3",
     "pg": "^8.22.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/adm-zip": "^0.5.8",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19",

@@ -33,6 +33,12 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# plugin storage (contents are installed plugin bundles)
+/plugins/*
+!/plugins/.gitkeep
+/public/plugins/*
+!/public/plugins/.gitkeep
+
 # vercel
 .vercel
 

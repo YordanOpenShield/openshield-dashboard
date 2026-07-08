@@ -96,6 +96,32 @@ export async function POST(request: NextRequest) {
       )
     `);
 
+    // ── Plugin System Tables ────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS plugin_registry (
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        version VARCHAR(50) NOT NULL,
+        description TEXT,
+        manifest JSONB NOT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        installed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        settings JSONB DEFAULT '{}'
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS plugin_migrations (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        plugin_id VARCHAR(255) NOT NULL,
+        filename VARCHAR(500) NOT NULL,
+        hash VARCHAR(64) NOT NULL,
+        executed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(plugin_id, filename)
+      )
+    `);
+
     // Seed default role definitions (idempotent — ON CONFLICT does nothing).
     // These are regular roles stored in custom_roles, fully editable and
     // deletable through the admin UI like any other role.
