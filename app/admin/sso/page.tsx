@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { authClient } from "@/lib/auth-client";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -185,7 +184,7 @@ function Modal({
 }) {
   if (!open) return null;
 
-  return createPortal(
+  return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 pb-8 px-4">
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -238,7 +237,7 @@ function ConfirmDialog({
 }) {
   if (!open) return null;
 
-  return createPortal(
+  return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 pb-8 px-4">
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -269,8 +268,7 @@ function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 
@@ -66,7 +65,7 @@ function Modal({
 }) {
   if (!open) return null;
 
-  return createPortal(
+  return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 pb-8 px-4">
       {/* Backdrop */}
       <div
@@ -89,8 +88,7 @@ function Modal({
         </div>
         {children}
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
 

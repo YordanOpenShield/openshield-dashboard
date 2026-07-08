@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createPortal } from "react-dom";
 import { deleteQuery } from "@/lib/manager-client";
 import type { Query } from "@/lib/manager-types";
 
@@ -148,7 +147,7 @@ export function QueryList({ queries }: Props) {
       </div>
 
       {/* Confirmation modal */}
-      {confirming && createPortal(
+      {confirming && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 pb-8 px-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setConfirming(false)} />
           <div className="relative z-10 w-full max-w-md bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6">
@@ -187,8 +186,7 @@ export function QueryList({ queries }: Props) {
               </button>
             </div>
           </div>
-        </div>,
-        document.body
+        </div>
       )}
     </>
   );

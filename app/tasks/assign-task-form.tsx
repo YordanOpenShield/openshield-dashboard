@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { assignTask, getJobsList, getAgentsList } from "@/lib/manager-client";
 import type { Job, Agent } from "@/lib/manager-types";
 
@@ -59,7 +58,7 @@ export function AssignTaskForm() {
         + Assign Task
       </button>
 
-      {open && createPortal(
+      {open && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 pb-8 px-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
           <div className="relative z-10 w-full max-w-lg bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6">
@@ -141,8 +140,7 @@ export function AssignTaskForm() {
               </form>
             )}
           </div>
-        </div>,
-        document.body
+        </div>
       )}
     </>
   );

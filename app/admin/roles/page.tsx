@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
+
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ function Modal({
 }) {
   if (!open) return null;
 
-  return createPortal(
+  return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 pb-8 px-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-2xl bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
@@ -56,8 +56,7 @@ function Modal({
         </div>
         {children}
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
 
