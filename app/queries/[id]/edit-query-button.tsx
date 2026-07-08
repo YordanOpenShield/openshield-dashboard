@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { SqlEditor } from "@/components/sql-editor";
 import { updateQuery } from "@/lib/manager-client";
 import type { Query } from "@/lib/manager-types";
 
@@ -90,14 +91,7 @@ export function EditQueryButton({ query }: Props) {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-1">SQL</label>
-                <textarea
-                  value={sql}
-                  onChange={(e) => setSql(e.target.value)}
-                  required
-                  rows={5}
-                  className="w-full bg-[#0d0d0d] border border-white/10 rounded-md px-3 py-2 text-gray-200 font-mono text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all duration-200 resize-none"
-                />
+                <SqlEditor value={sql} onChange={setSql} />
               </div>
 
               <div>
