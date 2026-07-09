@@ -5,9 +5,9 @@
 import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 const baseClass =
-  "w-full bg-[#0d0d0d] border border-white/10 rounded-lg px-3 py-2.5 text-gray-200 " +
-  "placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 " +
-  "focus:border-violet-500/50 transition-all duration-200";
+  "w-full bg-[var(--bg-tertiary)] border border-[var(--border-default)] rounded-lg px-3 py-2.5 text-[var(--text-primary)] " +
+  "placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-from)]/50 " +
+  "focus:border-[var(--accent-from)]/50 transition-all duration-200";
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -19,12 +19,12 @@ export function Input({ label, hint, className = "", id, ...props }: InputProps)
   return (
     <div className="space-y-1.5">
       {label && (
-        <label htmlFor={inputId} className="block text-sm text-gray-400">
+        <label htmlFor={inputId} className="block text-sm text-[var(--text-secondary)]">
           {label}
         </label>
       )}
       <input id={inputId} className={`${baseClass} ${className}`} {...props} />
-      {hint && <p className="text-xs text-gray-600">{hint}</p>}
+      {hint && <p className="text-xs text-[var(--text-muted)]">{hint}</p>}
     </div>
   );
 }
@@ -38,7 +38,7 @@ export function Textarea({ label, className = "", id, ...props }: TextareaProps)
   return (
     <div className="space-y-1.5">
       {label && (
-        <label htmlFor={inputId} className="block text-sm text-gray-400">
+        <label htmlFor={inputId} className="block text-sm text-[var(--text-secondary)]">
           {label}
         </label>
       )}
@@ -57,7 +57,7 @@ export function Select({ label, options, className = "", id, ...props }: SelectP
   return (
     <div className="space-y-1.5">
       {label && (
-        <label htmlFor={selectId} className="block text-sm text-gray-400">
+        <label htmlFor={selectId} className="block text-sm text-[var(--text-secondary)]">
           {label}
         </label>
       )}

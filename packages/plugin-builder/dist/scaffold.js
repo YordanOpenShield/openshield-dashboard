@@ -34,7 +34,7 @@ export async function scaffoldPlugin(options = {}) {
             dev: "plugin-builder build --skip-zip",
         },
         dependencies: {
-            "@open_shield/plugin-sdk": "^1.0.2",
+            "@open_shield/plugin-sdk": "^1.2.0",
         },
         devDependencies: {
             "@open_shield/plugin-builder": "^1.0.1",
@@ -136,16 +136,17 @@ export default definePlugin({
     fs.writeFileSync(path.join(pluginDir, "src", "server", "index.ts"), serverIndex);
     // Client entry
     const clientIndex = `import { createPluginUI } from "@open_shield/plugin-sdk";
+import { Card, Heading, Text, StatCard, Button, Badge, Input } from "@open_shield/plugin-sdk/components";
 
 function Dashboard({ initialData }: { initialData: unknown }) {
   return (
     <div className="space-y-6">
-      <div className="bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-100 mb-2">${pluginName.charAt(0).toUpperCase() + pluginName.slice(1)} Dashboard</h2>
-        <p className="text-sm text-gray-400">
+      <Card padding="lg">
+        <Heading>${pluginName.charAt(0).toUpperCase() + pluginName.slice(1)} Dashboard</Heading>
+        <Text variant="secondary" className="mt-1">
           This is the ${pluginName} plugin. Edit <code>src/client/index.tsx</code> to get started.
-        </p>
-      </div>
+        </Text>
+      </Card>
     </div>
   );
 }

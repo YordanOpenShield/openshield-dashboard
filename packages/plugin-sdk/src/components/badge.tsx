@@ -13,12 +13,12 @@ interface BadgeProps {
 }
 
 const variantClasses: Record<BadgeVariant, string> = {
-  default: "bg-white/5 text-gray-400 border border-white/10",
-  success: "bg-green-500/10 text-green-400 border border-green-500/20",
-  warning: "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20",
-  danger: "bg-red-500/10 text-red-400 border border-red-500/20",
-  info: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
-  violet: "bg-violet-500/10 text-violet-400 border border-violet-500/20",
+  default: "bg-[var(--bg-muted)] text-[var(--text-muted)] border border-[var(--border-default)]",
+  success: "bg-[var(--success)]/10 text-[var(--success)] border border-[var(--success)]/20",
+  warning: "bg-[var(--warning)]/10 text-[var(--warning)] border border-[var(--warning)]/20",
+  danger: "bg-[var(--error)]/10 text-[var(--error)] border border-[var(--error)]/20",
+  info: "bg-[var(--info)]/10 text-[var(--info)] border border-[var(--info)]/20",
+  violet: "bg-[var(--accent-from)]/10 text-[var(--accent-from)] border border-[var(--accent-from)]/20",
 };
 
 export function Badge({ children, variant = "default", size = "sm" }: BadgeProps) {
@@ -36,19 +36,19 @@ interface StatusDotProps {
 }
 
 const dotColors: Record<string, string> = {
-  connected: "bg-green-500",
-  disconnected: "bg-gray-500",
-  running: "bg-blue-500",
-  completed: "bg-green-500",
-  failed: "bg-red-500",
-  pending: "bg-yellow-500",
+  connected: "bg-[var(--success)]",
+  disconnected: "bg-[var(--text-muted)]",
+  running: "bg-[var(--info)]",
+  completed: "bg-[var(--success)]",
+  failed: "bg-[var(--error)]",
+  pending: "bg-[var(--warning)]",
 };
 
 export function StatusDot({ status, label }: StatusDotProps) {
   return (
     <span className="inline-flex items-center gap-1.5 text-sm font-medium">
-      <span className={`w-2 h-2 rounded-full ${dotColors[status] ?? "bg-gray-500"}`} />
-      {label && <span className="text-gray-400">{label}</span>}
+      <span className={`w-2 h-2 rounded-full ${dotColors[status] ?? "bg-[var(--text-muted)]"}`} />
+      {label && <span className="text-[var(--text-secondary)]">{label}</span>}
     </span>
   );
 }

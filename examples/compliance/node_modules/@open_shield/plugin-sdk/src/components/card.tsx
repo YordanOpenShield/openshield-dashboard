@@ -1,7 +1,8 @@
 /**
  * ─── UI Components: Card ─────────────────────────────────────────────────────
  *
- * Glassmorphism card container used throughout the dashboard.
+ * Glassmorphism card container. Uses CSS custom properties from the dashboard
+ * so it automatically picks up theme changes.
  */
 
 import type { ReactNode } from "react";
@@ -22,8 +23,8 @@ const paddingMap = {
 export function Card({ children, className = "", padding = "md", hover = false }: CardProps) {
   return (
     <div
-      className={`bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-lg ${paddingMap[padding]} ${
-        hover ? "transition-all duration-200 hover:border-white/20" : ""
+      className={`bg-[var(--bg-secondary)]/80 backdrop-blur-md border border-[var(--border-default)] rounded-lg ${paddingMap[padding]} ${
+        hover ? "transition-all duration-200 hover:border-[var(--border-hover)]" : ""
       } ${className}`}
     >
       {children}
@@ -34,7 +35,7 @@ export function Card({ children, className = "", padding = "md", hover = false }
 export function CardHeader({ title, action }: { title: string; action?: ReactNode }) {
   return (
     <div className="flex items-center justify-between mb-4">
-      <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider">{title}</h2>
+      <h2 className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider">{title}</h2>
       {action && <div>{action}</div>}
     </div>
   );

@@ -1,6 +1,6 @@
 {
   "name": "@open_shield/plugin-builder",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "OpenShield Dashboard Plugin Builder — compile and package plugins for the dashboard",
   "type": "module",
   "main": "dist/index.js",
