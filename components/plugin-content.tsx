@@ -17,6 +17,8 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 
+import type { PluginNavigationItem, PluginActionHook, HookLocation } from "@/lib/plugins/types";
+
 // ─── Plugin Client Registry ─────────────────────────────────────────────────
 
 /**
@@ -25,20 +27,43 @@ import { useEffect, useState, useRef, useCallback } from "react";
  */
 export class PluginClientRegistry {
   private pages = new Map<string, React.ComponentType<any>>();
+  private navItems: PluginNavigationItem[] = [];
+  private actionHooks: PluginActionHook[] = [];
+  private settingsComponent: React.ComponentType<any> | null = null;
   private _initialized = false;
 
   registerPage(name: string, component: React.ComponentType<any>): void {
     this.pages.set(name, component);
   }
-
   getPage(name: string): React.ComponentType<any> | undefined {
     return this.pages.get(name);
+  }
+
+  registerNavItem(item: PluginNavigationItem): void {
+    this.navItems.push(item);
+  }
+  getNavItems(): PluginNavigationItem[] {
+    return [...this.navItems];
+  }
+
+  registerActionHook(hook: PluginActionHook): void {
+    this.actionHooks.push(hook);
+  }
+  getActionHooks(location?: HookLocation): PluginActionHook[] {
+    if (location) return this.actionHooks.filter((h) => h.location === location);
+    return [...this.actionHooks];
+  }
+
+  registerAdminSettingsComponent(component: React.ComponentType<any>): void {
+    this.settingsComponent = component;
+  }
+  getAdminSettingsComponent(): React.ComponentType<any> | null {
+    return this.settingsComponent;
   }
 
   get initialized(): boolean {
     return this._initialized;
   }
-
   markInitialized(): void {
     this._initialized = true;
   }

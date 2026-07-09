@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getAgentDetails, getAgentTasks, getAgentTools } from "@/lib/manager-client";
 import { ExecuteToolButton } from "./execute-tool-button";
+import { ActionHookToolbar } from "@/components/action-hooks";
 
 // ─── Agent Detail Page ───────────────────────────────────────────────────────
 
@@ -66,6 +67,11 @@ export default async function AgentDetailPage({
             {agent.state}
           </span>
         </div>
+      </div>
+
+      {/* Plugin Action Hooks */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        <ActionHookToolbar location="agent-detail-toolbar" contextParams={{ agentId: id }} />
       </div>
 
       {/* Info Grid */}

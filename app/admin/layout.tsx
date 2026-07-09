@@ -47,13 +47,19 @@ export default async function AdminLayout({
     permission: item.permission,
   }));
 
-  // Build permission booleans for plugin permissions
+  // Build permission booleans for plugin permissions — admins always see all
+  const userRoles: string[] = ((session.user as any).role ?? "").split(",").map((r: string) => r.trim()).filter(Boolean);
+  const isAdmin = userRoles.includes("admin");
+
   const pluginPermBooleans: Record<string, boolean> = {};
-  for (const [resource, actions] of Object.entries(pluginPermissions)) {
-    for (const action of actions) {
-      const key = `${resource}:${action}`;
-      const perm = await requirePermission({ [resource]: [action] }, hdrs);
-      pluginPermBooleans[key] = perm.authorized;
+  if (!isAdmin) {
+    // Only check permissions for non-admin users
+    for (const [resource, actions] of Object.entries(pluginPermissions)) {
+      for (const action of actions) {
+        const key = `${resource}:${action}`;
+        const perm = await requirePermission({ [resource]: [action] }, hdrs);
+        pluginPermBooleans[key] = perm.authorized;
+      }
     }
   }
 
@@ -72,6 +78,7 @@ export default async function AdminLayout({
           canViewRoles={canViewRoles.authorized}
           canManageSettings={canManageSettings.authorized}
           canManagePlugins={canManagePlugins.authorized}
+          isAdmin={isAdmin}
           pluginNavItems={pluginNavItems}
           pluginPermissions={pluginPermBooleans}
         />

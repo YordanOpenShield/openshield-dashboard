@@ -8,6 +8,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -366,6 +367,12 @@ export default function AdminPluginsPage() {
 
               {/* Actions */}
               <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+                <Link
+                  href={`/admin/plugins/${plugin.id}`}
+                  className="text-xs text-gray-400 hover:text-gray-200 hover:bg-white/5 px-2.5 py-1.5 rounded-md transition-all duration-200"
+                >
+                  Configure
+                </Link>
                 <button
                   type="button"
                   onClick={() => setConfirmUninstall(plugin.id)}

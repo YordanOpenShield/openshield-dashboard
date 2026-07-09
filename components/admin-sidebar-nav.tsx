@@ -71,6 +71,7 @@ export function AdminSidebarNav({
   canViewRoles,
   canManageSettings,
   canManagePlugins = false,
+  isAdmin = false,
   pluginNavItems = [],
   pluginPermissions = {},
 }: {
@@ -78,6 +79,7 @@ export function AdminSidebarNav({
   canViewRoles: boolean;
   canManageSettings: boolean;
   canManagePlugins?: boolean;
+  isAdmin?: boolean;
   /** Plugin admin nav items passed from the server layout */
   pluginNavItems?: { href: string; label: string; permission?: string }[];
   /** Permission booleans for plugin items, keyed by permission string */
@@ -107,6 +109,8 @@ export function AdminSidebarNav({
     <nav className="flex-1 p-3 space-y-1">
       {allItems
         .filter((item) => {
+          // Admins see all items regardless of plugin permissions
+          if (isAdmin) return true;
           if (!item.permission) return true;
           // Check core permissions
           if (item.permission in canAccess) return canAccess[item.permission];

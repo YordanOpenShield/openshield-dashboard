@@ -36,12 +36,13 @@ export async function Navbar() {
   // Check if user has any admin permission to show the Admin link
   const canAccessAdmin = session ? await hasAnyAdminPermission(hdrs) : false;
 
+  // Get user roles for admin bypass on plugin nav items
+  const userRoles: string[] = session
+    ? ((session.user as any).role ?? "").split(",").map((r: string) => r.trim()).filter(Boolean)
+    : [];
+  const isAdmin = userRoles.includes("admin");
+
   // Get plugin navigation items
-  const pluginNavItems = session
-    ? (await getPluginRegistry()).getNavItems("main")
-    : { main: [] as any[], admin: [] as any[] };
-  // getNavItems returns an array, but we need to handle the async Map return
-  // Actually getNavItems returns PluginNavigationItem[] directly
   const pluginNav: { label: string; href: string; permission?: string }[] = [];
   if (session) {
     const registry = await getPluginRegistry();
@@ -51,10 +52,13 @@ export async function Navbar() {
     }
   }
 
-  // Permission check helper for nav items
+  // Permission check helper for nav items.
+  // Admins can see all plugin nav items even without explicit role permissions.
   async function canSeeItem(item: { permission?: string }): Promise<boolean> {
     if (!item.permission) return true;
     if (!session) return false;
+    // Admins bypass plugin permission checks
+    if (isAdmin) return true;
     const [resource, action] = item.permission.split(":");
     if (!resource || !action) return true;
     const result = await requirePermission({ [resource]: [action] }, hdrs);

@@ -11,6 +11,7 @@ import {
   getGroupsList,
 } from "@/lib/manager-client";
 import Link from "next/link";
+import { ActionHookToolbar } from "@/components/action-hooks";
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 
@@ -211,6 +212,11 @@ export default async function DashboardPage() {
               </svg>
             }
           />
+        </div>
+
+        {/* Plugin Widgets */}
+        <div className="mb-8">
+          <ActionHookToolbar location="dashboard-widgets" />
         </div>
 
         {/* Quick Actions */}
