@@ -25,7 +25,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex flex-col bg-[#0a0a0a]">
+    <div className="flex flex-col flex-1 bg-[#0a0a0a]">
       {/* Admin header bar */}
       <div className="border-b border-white/10 bg-[#111111]/50 px-6 py-3">
         <div className="flex items-center gap-3">
