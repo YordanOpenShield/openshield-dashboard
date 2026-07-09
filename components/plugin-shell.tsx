@@ -31,10 +31,10 @@ export async function PluginShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-[#0a0a0a]">
+    <>
       {/* Plugin Header */}
       <div className="border-b border-white/10 bg-[#111111]/50">
-        <div className="px-6 py-4">
+        <div className="px-6 sm:px-8 lg:px-10 py-4">
           <div className="flex items-center gap-3 mb-3">
             {pluginIcon && (
               <img
@@ -73,11 +73,9 @@ export async function PluginShell({
       </div>
 
       {/* Page Content */}
-      <div className="flex-1">
-        <div className="px-6 py-6">
-          {children}
-        </div>
+      <div className="p-6 sm:p-8 lg:p-10">
+        {children}
       </div>
-    </div>
+    </>
   );
 }

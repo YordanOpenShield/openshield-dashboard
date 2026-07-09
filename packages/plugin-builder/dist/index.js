@@ -164,6 +164,43 @@ async function compileClient(srcDir, outFile, pluginId) {
         format: "iife",
         globalName: "__plugin_bundle",
         jsx: "transform",
+        jsxFactory: "React.createElement",
+        jsxFragment: "React.Fragment",
+        // Externalize "react" so the bundle doesn't ship its own copy. At runtime
+        // the global "React" object (set up by <PluginGlobals />) is used.
+        // "react/jsx-runtime" is NOT externalized — we use a plugin below to
+        // resolve it to a tiny stub that re-exports jsx/jsxs/Fragment from the
+        // global React object (available in React 19+).
+        external: ["react"],
+        plugins: [
+            {
+                name: "react-jsx-runtime-alias",
+                setup(build) {
+                    // Intercept imports of "react/jsx-runtime" and redirect to a
+                    // virtual module that wraps the global React object.
+                    build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => {
+                        return { path: "react-jsx-runtime-stub", namespace: "plugin-builder" };
+                    });
+                    // Provide the virtual module content.
+                    build.onLoad({ filter: /^react-jsx-runtime-stub$/, namespace: "plugin-builder" }, () => ({
+                        contents: [
+                            // React 19's jsx-runtime functions (jsx, jsxs) are NOT exported
+                            // on the main React object — they only live in react/jsx-runtime.
+                            // However both are thin wrappers around createElement, so we
+                            // alias them here. The entry point itself is compiled with
+                            // jsx: "transform" / React.createElement, so those calls go
+                            // directly to the global React too.
+                            `const R = globalThis.React;`,
+                            `export const jsx = R.createElement;`,
+                            `export const jsxs = R.createElement;`,
+                            `export const Fragment = R.Fragment;`,
+                            `export default { jsx, jsxs, Fragment };`,
+                        ].join("\n"),
+                        loader: "js",
+                    }));
+                },
+            },
+        ],
         sourcemap: false,
         minify: true,
     });

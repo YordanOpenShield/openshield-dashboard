@@ -4,6 +4,7 @@ import "./globals.css";
 import { Navbar } from "@/components/navbar";
 import { Sidebar } from "@/components/sidebar";
 import { MainContent } from "@/components/main-content";
+import { PluginGlobals } from "@/components/plugin-globals";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,6 +33,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
+        <PluginGlobals />
         <Navbar />
         <div className="flex flex-1 pt-16">
           <Sidebar />
