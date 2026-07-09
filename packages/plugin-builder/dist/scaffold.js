@@ -34,7 +34,7 @@ export async function scaffoldPlugin(options = {}) {
             dev: "plugin-builder build --skip-zip",
         },
         dependencies: {
-            "@open_shield/plugin-sdk": "^1.0.2",
+            "@open_shield/plugin-sdk": "^1.1.0",
         },
         devDependencies: {
             "@open_shield/plugin-builder": "^1.0.1",
