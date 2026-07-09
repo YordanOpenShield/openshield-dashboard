@@ -17,9 +17,9 @@ export function LoadingSpinner({ size = "md", label }: LoadingSpinnerProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-12">
       <div
-        className={`${spinnerSizes[size]} border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin`}
+        className={`${spinnerSizes[size]} border-2 border-[var(--accent-from)]/30 border-t-[var(--accent-from)] rounded-full animate-spin`}
       />
-      {label && <p className="text-sm text-gray-500">{label}</p>}
+      {label && <p className="text-sm text-[var(--text-muted)]">{label}</p>}
     </div>
   );
 }
@@ -37,12 +37,12 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
   return (
     <div className="text-center py-16">
       {icon && (
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-default)] flex items-center justify-center">
           {icon}
         </div>
       )}
-      <h3 className="text-lg font-medium text-gray-400 mb-2">{title}</h3>
-      {description && <p className="text-sm text-gray-600 max-w-md mx-auto mb-6">{description}</p>}
+      <h3 className="text-lg font-medium text-[var(--text-secondary)] mb-2">{title}</h3>
+      {description && <p className="text-sm text-[var(--text-muted)] max-w-md mx-auto mb-6">{description}</p>}
       {action && <div>{action}</div>}
     </div>
   );
@@ -57,9 +57,9 @@ interface HeadingProps {
 }
 
 const headingClasses: Record<number, string> = {
-  1: "text-2xl font-bold text-gray-100",
-  2: "text-lg font-semibold text-gray-200",
-  3: "text-sm font-medium text-gray-300",
+  1: "text-2xl font-bold text-[var(--text-primary)]",
+  2: "text-lg font-semibold text-[var(--text-primary)]",
+  3: "text-sm font-medium text-[var(--text-primary)]",
 };
 
 export function Heading({ level = 2, children, className = "" }: HeadingProps) {
@@ -78,10 +78,10 @@ interface TextProps {
 }
 
 const textClasses: Record<string, string> = {
-  body: "text-sm text-gray-200",
-  secondary: "text-sm text-gray-400",
-  muted: "text-xs text-gray-600",
-  label: "text-sm text-gray-500",
+  body: "text-sm text-[var(--text-primary)]",
+  secondary: "text-sm text-[var(--text-secondary)]",
+  muted: "text-xs text-[var(--text-muted)]",
+  label: "text-sm text-[var(--text-muted)]",
 };
 
 export function Text({ variant = "body", children, className = "" }: TextProps) {
@@ -91,5 +91,5 @@ export function Text({ variant = "body", children, className = "" }: TextProps) 
 // ─── Divider ────────────────────────────────────────────────────────────────
 
 export function Divider({ className = "" }: { className?: string }) {
-  return <hr className={`border-white/5 ${className}`} />;
+  return <hr className={`border-[var(--bg-muted)] ${className}`} />;
 }

@@ -25,24 +25,24 @@ export function Table<T extends Record<string, any>>({
   emptyMessage = "No data available.",
 }: TableProps<T>) {
   return (
-    <div className="bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-lg overflow-hidden">
+    <div className="bg-[var(--bg-secondary)]/80 backdrop-blur-md border border-[var(--border-default)] rounded-lg overflow-hidden">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-white/10">
+          <tr className="border-b border-[var(--border-default)]">
             {columns.map((col) => (
               <th
                 key={col.key}
-                className={`text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${col.className ?? ""}`}
+                className={`text-left px-4 py-3 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider ${col.className ?? ""}`}
               >
                 {col.header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/5">
+        <tbody className="divide-y divide-[var(--bg-muted)]">
           {data.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-4 py-12 text-center text-gray-600 text-sm">
+              <td colSpan={columns.length} className="px-4 py-12 text-center text-[var(--text-muted)] text-sm">
                 {emptyMessage}
               </td>
             </tr>
@@ -50,7 +50,7 @@ export function Table<T extends Record<string, any>>({
             data.map((item) => (
               <tr key={keyExtractor(item)} className="hover:bg-white/[0.02] transition-colors duration-150">
                 {columns.map((col) => (
-                  <td key={col.key} className={`px-4 py-3 text-sm ${col.className ?? "text-gray-200"}`}>
+                  <td key={col.key} className={`px-4 py-3 text-sm ${col.className ?? "text-[var(--text-primary)]"}`}>
                     {col.render ? col.render(item) : item[col.key]}
                   </td>
                 ))}

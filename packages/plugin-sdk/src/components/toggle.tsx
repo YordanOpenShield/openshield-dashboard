@@ -18,7 +18,7 @@ export function Toggle({ value, onChange, label, disabled = false }: ToggleProps
         aria-checked={value}
         onClick={() => !disabled && onChange(!value)}
         className={`relative w-10 h-5 rounded-full transition-all duration-200 ${
-          value ? "bg-violet-500" : "bg-white/10"
+          value ? "bg-[var(--accent-from)]" : "bg-[var(--border-default)]"
         }`}
       >
         <span
@@ -27,7 +27,7 @@ export function Toggle({ value, onChange, label, disabled = false }: ToggleProps
           }`}
         />
       </button>
-      {label && <span className="text-sm text-gray-400 select-none">{label}</span>}
+      {label && <span className="text-sm text-[var(--text-secondary)] select-none">{label}</span>}
     </label>
   );
 }
