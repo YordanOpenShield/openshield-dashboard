@@ -1,0 +1,94 @@
+name: Packages CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/plugin-sdk/**"
+      - "packages/plugin-builder/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/plugin-sdk/**"
+      - "packages/plugin-builder/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        package: [plugin-sdk, plugin-builder]
+
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.package }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: packages/${{ matrix.package }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify package contents
+        run: |
+          echo "Checking dist/ contents..."
+          ls -la dist/
+          test -f dist/index.js || { echo "Missing dist/index.js"; exit 1; }
+          test -f dist/index.d.ts || { echo "Missing dist/index.d.ts"; exit 1; }
+          echo "✅ Package builds successfully"
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build SDK
+        run: |
+          cd packages/plugin-sdk
+          npm ci
+          npm run build
+
+      - name: Build CLI
+        run: |
+          cd packages/plugin-builder
+          npm ci
+          npm run build
+
+      - name: Scaffold test plugin
+        run: |
+          node packages/plugin-builder/dist/cli.js init --name smoke-test /tmp/smoke-test
+
+      - name: Build test plugin
+        run: |
+          cd /tmp/smoke-test
+          npm install
+          npm run build
+          test -f plugin-smoke-test-1.0.0.zip || { echo "Missing plugin zip"; exit 1; }
+          echo "✅ End-to-end: plugin builds successfully"
+
+      - name: Verify plugin structure
+        run: |
+          unzip -l /tmp/smoke-test/plugin-smoke-test-1.0.0.zip
+          unzip -l /tmp/smoke-test/plugin-smoke-test-1.0.0.zip | grep -q manifest.json || { echo "Missing manifest.json"; exit 1; }
+          unzip -l /tmp/smoke-test/plugin-smoke-test-1.0.0.zip | grep -q "server/index.js" || { echo "Missing server/index.js"; exit 1; }
+          unzip -l /tmp/smoke-test/plugin-smoke-test-1.0.0.zip | grep -q "client/ui.js" || { echo "Missing client/ui.js"; exit 1; }
+          echo "✅ Plugin zip structure is valid"
