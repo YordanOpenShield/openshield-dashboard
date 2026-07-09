@@ -1,20 +1,84 @@
-# OpenShield Dashboard
+# OpenShield Agent Manager Dashboard
 
-A Next.js application with Better Auth authentication, PostgreSQL database, and a plugin system for extensibility.
+A Web UI for the OpenShield Agent Manager — monitor, manage, and query your agent fleet in real time.
+
+Built with **Next.js 16** (App Router), **Better Auth**, **PostgreSQL**, and a dark glassmorphism design system.
 
 ## Features
 
-- **Next.js 14+** with App Router
-- **TypeScript** for type safety
-- **Tailwind CSS** for styling
-- **Better Auth** for authentication
-- **PostgreSQL** database with `pg` driver
-- **Plugin System** — extend functionality with independently developed plugins
+### 🔌 Agent Management
+- **Live agent list** — view connected/disconnected agents with metadata
+- **Agent details** — inspect addresses, services, and available tools
+- **Tool execution** — run tools (e.g., ClamAV scan, fail2ban) directly from the UI
+- **Unregister** — remove agents from the fleet
+
+### 📋 Jobs & Tasks
+- **Job templates** — define commands or scripts as reusable job definitions
+- **Task assignment** — assign jobs to specific agents
+- **Execution tracking** — monitor task status (PENDING → RUNNING → COMPLETED/FAILED)
+- **Result inspection** — view task output and error details
+
+### 📊 FleetDM-Style Queries
+- **SQL query editor** — write and save osquery-compatible SQL queries
+- **Schema reference** — built-in osquery table/column browser for beginners
+- **Inline autocomplete** — table names, column names, and SQL keywords
+- **Query execution** — run queries against one or more agents
+- **Execution history** — track results per agent with timing metadata
+- **Result viewer** — formatted JSON output with status badges
+- **Create, edit, delete queries** — full CRUD with bulk delete support
+
+### 👥 Agent Groups
+- **Static groups** — manually add/remove agents
+- **Dynamic groups** — auto-populate based on criteria (OS, state, last seen)
+- **Bulk targeting** — target groups for jobs and queries via bulk operations
+
+### 📦 Bulk Operations
+- **Batch actions** — assign tasks, run queries across multiple agents
+- **Progress tracking** — monitor completion, partial, and failure counts
+- **Cancel in-flight** — abort running bulk operations
+
+### 🔐 Authentication & Admin
+- **Email/password auth** — powered by Better Auth
+- **SSO** — OIDC and SAML provider support (Keycloak, Okta, etc.)
+- **RBAC** — role-based access control with custom role definitions
+- **User management** — create, edit, ban, delete users
+- **Role editor** — permission matrix for fine-grained access control
+- **Session management** — view and revoke active sessions
+
+### 🎨 Design
+- Dark theme with glassmorphism cards (`bg-[#111111]/80 backdrop-blur-md`)
+- Gradient accents (`from-violet-500 to-blue-500`)
+- Responsive layout with collapsible navigation
+- Loading skeletons and empty states throughout
+- Real-time SSE event streams (opt-in toggle)
+
+## Architecture
+
+```
+┌─ Browser ──────────────────────────────┐
+│  /dashboard  /agents  /jobs  /queries  │
+│  /tasks  /groups  /bulk-operations     │
+│         /admin/*                        │
+└──────────────┬──────────────────────────┘
+               │
+         Next.js Rewrites
+               │
+┌──────────────▼──────────────────────────┐
+│  Manager API (localhost:9000)           │
+│  /api/agents/*  /api/jobs/*             │
+│  /api/queries/*  /api/groups/*          │
+│  /api/tasks/*  /api/bulk-operations/*   │
+│  /events/* (SSE)                        │
+└─────────────────────────────────────────┘
+```
+
+The dashboard proxies all manager API calls through Next.js rewrites configured in `next.config.ts`. Server components call the manager API directly, while client components use relative URLs that hit the proxy.
 
 ## Prerequisites
 
 - Node.js 18+
 - PostgreSQL database (local or cloud)
+- [OpenShield Manager](https://github.com/YordanOpenShield/openshield-manager) running on `localhost:9000` (or your configured `MANAGER_API_URL`)
 
 ## Setup
 
@@ -30,174 +94,114 @@ npm install
 docker-compose up -d
 ```
 
-This will start PostgreSQL on port 5432 with:
+This starts PostgreSQL on port 5432 with:
 - **Database:** `openshield`
 - **User:** `openshield`
 - **Password:** `openshield`
 
-### 3. Configure environment variables
+### 3. Configure environment
 
-The `.env.local` file is already configured to work with the Docker PostgreSQL:
+Copy `.env.example` to `.env.local` and adjust:
 
 ```bash
 # .env.local
 DATABASE_URL=postgresql://openshield:openshield@localhost:5432/openshield
+BETTER_AUTH_URL=http://localhost:3000
+MANAGER_API_URL=http://localhost:9000
+
+# Default user (seeding)
+DEFAULT_USER_EMAIL=admin@example.com
+DEFAULT_USER_PASSWORD=password123
+DEFAULT_USER_NAME=Admin User
 ```
 
-### 3. Set up the database
+### 4. Initialize the database
 
-Better Auth will automatically create the necessary tables on first run. Make sure your PostgreSQL database is running and accessible.
-
-### 4. Initialize Database Tables
-
-Better Auth requires database tables. Use the Better Auth CLI:
-
-```bash
-# Generate migration files
-npx @better-auth/cli@latest generate
-
-# Or apply migrations directly
-npx @better-auth/cli@latest migrate
-```
-
-Or use the init endpoint:
-
-PowerShell:
-```powershell
-Invoke-WebRequest -Uri http://localhost:3000/api/init-db -Method POST
-```
-
-Or Bash/curl:
 ```bash
 curl -X POST http://localhost:3000/api/init-db
 ```
 
-### 5. Create a default user
+### 5. Create the admin user
 
-**Registration is disabled.** Users can only be created via the seed endpoint.
-
-Default user credentials are configured in `.env.local`:
-- `DEFAULT_USER_EMAIL` - The email address (default: admin@example.com)
-- `DEFAULT_USER_PASSWORD` - The password (default: password123)
-- `DEFAULT_USER_NAME` - The display name (default: Admin User)
-
-After initializing the database, create the default user:
-
-PowerShell:
-```powershell
-Invoke-WebRequest -Uri http://localhost:3000/api/seed -Method POST
-```
-
-Or Bash/curl:
 ```bash
 curl -X POST http://localhost:3000/api/seed
 ```
 
-Then log in at http://localhost:3000/login with the configured credentials.
-
-### 5. Run the development server
+### 6. Start the dev server
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser.
+Open [http://localhost:3000](http://localhost:3000) and sign in with the configured credentials.
 
----
-
-## Plugin System
-
-The dashboard supports a WordPress-style plugin system. Plugins are developed independently, compiled into a `.zip` archive, and installed via the admin UI.
-
-### Quick Start for Plugin Authors
-
-```bash
-# Scaffold a new plugin
-npx @open_shield/plugin-builder init --name my-plugin
-cd my-plugin
-
-# Install dependencies
-npm install
-
-# Build the plugin
-npm run build
-# → plugin-my-plugin-1.0.0.zip
-
-# Upload the .zip via Admin → Plugins → Upload Plugin
-# Then restart the dashboard server
-```
-
-### Plugin Structure
+## Project Structure
 
 ```
-my-plugin/
-├── manifest.json              ← Plugin declaration (required)
-├── src/
-│   ├── server/
-│   │   ├── index.ts           ← API routes + DB lifecycle (optional)
-│   │   └── migrations/        ← SQL migrations (optional)
-│   └── client/
-│       └── index.tsx           ← React components (optional)
-└── assets/
-    └── icon.svg               ← Plugin icon (optional)
+app/
+├── agents/                  # Agent list & detail pages
+├── dashboard/               # Main dashboard with stats
+├── jobs/                    # Job templates
+├── tasks/                   # Task execution tracking
+├── queries/                 # SQL query CRUD + execution viewer
+├── groups/                  # Agent groups
+├── bulk-operations/         # Bulk operation tracking
+├── admin/                   # User/role/SSO admin panel
+├── login/                   # Authentication pages
+├── api/                     # Auth, admin, seed API routes
+├── layout.tsx               # Root layout with navbar
+└── page.tsx                 # Landing page
+components/
+├── navbar.tsx               # Top navigation with all section links
+├── sql-editor.tsx           # SQL editor with schema reference & autocomplete
+├── refreshable-section.tsx  # Client wrapper with manual refresh button
+├── status-badge.tsx         # Reusable status indicator
+├── loading-skeleton.tsx     # Skeleton loaders
+├── empty-state.tsx          # Empty state cards
+└── error-state.tsx          # Error display with retry
+lib/
+├── auth.ts                  # Better Auth server config
+├── auth-client.ts           # Better Auth client config
+├── permissions.ts           # RBAC permission definitions
+├── db.ts                    # PostgreSQL pool
+├── manager-client.ts        # Typed fetch wrapper for manager API
+├── manager-types.ts         # TypeScript interfaces for all models
+└── osquery-schema.ts        # osquery table definitions for autocomplete
 ```
 
-### What Plugins Can Do
+## API Client
 
-| Capability | How |
-|------------|-----|
-| **New pages** | Declare pages in `manifest.json` under `/plugin/<id>/...` |
-| **API endpoints** | Declare API routes handled by the server bundle at `/api/plugin/<id>/...` |
-| **Custom React UI** | Provide React components rendered inside the dashboard's dark theme |
-| **Database tables** | Run SQL migrations on install, drop on uninstall |
-| **Navigation items** | Add links to the main navbar or admin sidebar |
-| **Permissions** | Declare new RBAC resources/actions that integrate with the role editor |
-| **Action hooks** | Register buttons that appear on existing pages (agent detail, dashboard, etc.) |
-| **Settings** | Declare a JSON Schema for admin-configurable settings |
+All manager API interactions go through `lib/manager-client.ts`, which provides typed functions for every endpoint. Server-side calls go directly to the manager, client-side calls use the Next.js rewrite proxy.
 
-### Manifest Reference
+```ts
+import { getAgentsList, runQuery, getQueryExecutionsList } from "@/lib/manager-client";
 
-```json
-{
-  "id": "my-plugin",
-  "name": "My Plugin",
-  "version": "1.0.0",
-  "description": "Description of my plugin",
-  "requires": "^1.0.0",
-  "permissions": {
-    "my_plugin": ["read", "write"]
-  },
-  "navigation": [
-    { "type": "main", "label": "My Plugin", "href": "/plugin/my-plugin", "permission": "my_plugin:read" }
-  ],
-  "pages": {
-    "": { "component": "Dashboard", "title": "Dashboard", "permission": "my_plugin:read" }
-  },
-  "api": {
-    "data": { "methods": ["GET"] }
-  },
-  "hooks": [
-    {
-      "location": "agent-detail-toolbar",
-      "label": "My Action",
-      "permission": "my_plugin:read",
-      "action": { "type": "navigate", "page": "my-page", "params": { "agentId": "{agentId}" } }
-    }
-  ],
-  "settingsSchema": {
-    "type": "object",
-    "properties": {
-      "mySetting": { "type": "boolean", "default": true }
-    }
-  }
-}
+const agents = await getAgentsList();
+const execution = await runQuery({ query_id: "uuid", agent_ids: ["uuid"] });
 ```
 
-### Installing a Plugin
+## Environment Variables
 
-1. Go to **Admin → Plugins**
-2. Click **Upload Plugin**
-3. Select the `.zip` file
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | — | PostgreSQL connection string |
+| `BETTER_AUTH_URL` | `http://localhost:3000` | Public dashboard URL |
+| `BETTER_AUTH_SECRET` | — | Secret for session encryption |
+| `MANAGER_API_URL` | `http://localhost:9000` | Manager API base URL |
+| `DEFAULT_USER_EMAIL` | — | Admin email for seeding |
+| `DEFAULT_USER_PASSWORD` | — | Admin password for seeding |
+| `DEFAULT_USER_NAME` | — | Admin display name for seeding |
+| `SMTP_HOST` | — | Email server for verification/password reset |
+| `SSO_ROLE_MAP` | `admin=admin` | Maps IdP roles to app roles |
+
+## Commands
+
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Start development server (port 3000) |
+| `npm run build` | Production build |
+| `npm run start` | Start production server |
+| `npm run lint` | Run ESLint |
 4. **Restart the dashboard server**
 5. The plugin's nav items, pages, API endpoints, and permissions are now available
 
