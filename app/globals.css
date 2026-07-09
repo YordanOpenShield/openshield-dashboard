@@ -22,6 +22,10 @@
   --warning: #f59e0b;
   --error: #ef4444;
   --info: #3b82f6;
+
+  /* ─── Sidebar Dimensions ─── */
+  --sidebar-width-expanded: 240px;
+  --sidebar-width-collapsed: 56px;
 }
 
 @theme inline {
