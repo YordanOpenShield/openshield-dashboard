@@ -162,13 +162,13 @@ export default definePlugin({
 
 function Dashboard({ initialData }: { initialData: unknown }) {
   return (
-    <div>
-      <h2 style={{ color: "#ededed", fontSize: "1.25rem", fontWeight: 600, marginBottom: "1rem" }}>
-        ${pluginName.charAt(0).toUpperCase() + pluginName.slice(1)} Dashboard
-      </h2>
-      <p style={{ color: "#a1a1a1" }}>
-        This is the ${pluginName} plugin. Edit <code>src/client/index.tsx</code> to get started.
-      </p>
+    <div className="space-y-6">
+      <div className="bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-100 mb-2">${pluginName.charAt(0).toUpperCase() + pluginName.slice(1)} Dashboard</h2>
+        <p className="text-sm text-gray-400">
+          This is the ${pluginName} plugin. Edit <code>src/client/index.tsx</code> to get started.
+        </p>
+      </div>
     </div>
   );
 }

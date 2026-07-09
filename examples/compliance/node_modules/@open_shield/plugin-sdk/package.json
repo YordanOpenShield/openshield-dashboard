@@ -1,6 +1,6 @@
 {
   "name": "@open_shield/plugin-sdk",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "OpenShield Dashboard Plugin SDK — types, helpers, and utilities for building plugins",
   "type": "module",
   "main": "dist/index.js",
@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./components": {
+      "types": "./dist/components/index.d.ts",
+      "import": "./dist/components/index.js"
     }
   },
   "files": [
