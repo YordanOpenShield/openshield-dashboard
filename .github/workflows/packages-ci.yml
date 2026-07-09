@@ -75,7 +75,7 @@ jobs:
 
       - name: Scaffold test plugin
         run: |
-          node packages/plugin-builder/dist/cli.js init --name smoke-test /tmp/smoke-test
+          node packages/plugin-builder/dist/cli.js init --name smoke-test --dir /tmp/smoke-test
 
       - name: Build test plugin
         run: |
