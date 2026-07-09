@@ -159,16 +159,17 @@ export default definePlugin({
 
   // Client entry
   const clientIndex = `import { createPluginUI } from "@open_shield/plugin-sdk";
+import { Card, Heading, Text } from "@open_shield/plugin-sdk/components";
 
 function Dashboard({ initialData }: { initialData: unknown }) {
   return (
-    <div>
-      <h2 style={{ color: "#ededed", fontSize: "1.25rem", fontWeight: 600, marginBottom: "1rem" }}>
-        ${pluginName.charAt(0).toUpperCase() + pluginName.slice(1)} Dashboard
-      </h2>
-      <p style={{ color: "#a1a1a1" }}>
-        This is the ${pluginName} plugin. Edit <code>src/client/index.tsx</code> to get started.
-      </p>
+    <div className="space-y-6">
+      <Card>
+        <Heading>${pluginName.charAt(0).toUpperCase() + pluginName.slice(1)} Dashboard</Heading>
+        <Text variant="secondary">
+          This is the ${pluginName} plugin. Edit <code>src/client/index.tsx</code> to get started.
+        </Text>
+      </Card>
     </div>
   );
 }
