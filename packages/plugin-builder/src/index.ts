@@ -229,15 +229,36 @@ async function compileClient(srcDir: string, outFile: string, pluginId: string):
           // Provide the virtual module content.
           build.onLoad({ filter: /^react-jsx-runtime-stub$/, namespace: "plugin-builder" }, () => ({
             contents: [
-              // React 19's jsx-runtime functions (jsx, jsxs) are NOT exported
-              // on the main React object — they only live in react/jsx-runtime.
-              // However both are thin wrappers around createElement, so we
-              // alias them here. The entry point itself is compiled with
-              // jsx: "transform" / React.createElement, so those calls go
-              // directly to the global React too.
-              `const R = globalThis.React;`,
-              `export const jsx = R.createElement;`,
-              `export const jsxs = R.createElement;`,
+              // The SDK's pre-compiled components call jsx/jsxs with the
+              // signature (type, props, key). React.createElement uses
+              // (type, props, ...children) instead.
+              //
+              // jsxs is used when there are multiple children. The automatic
+              // runtime passes them as an array in props.children. However
+              // React's dev-mode key warning fires when it sees an array in
+              // props.children without element keys. To avoid that we spread
+              // the children array as positional arguments to createElement,
+              // which React treats as positional (no key warning).
+              `var R = globalThis.React;`,
+              `export function jsx(type, props, key) {`,
+              `  return key != null`,
+              `    ? R.createElement(type, props !== null ? { ...props, key } : { key })`,
+              `    : R.createElement(type, props);`,
+              `}`,
+              `export function jsxs(type, props, key) {`,
+              `  var children = props != null ? props.children : void 0;`,
+              `  if (Array.isArray(children)) {`,
+              `    // Extract children from props and spread as positional args`,
+              `    var rest = { ...props };`,
+              `    delete rest.children;`,
+              `    var args = [type, key != null ? { ...rest, key } : rest];`,
+              `    for (var i = 0; i < children.length; i++) args.push(children[i]);`,
+              `    return R.createElement.apply(R, args);`,
+              `  }`,
+              `  return key != null`,
+              `    ? R.createElement(type, props !== null ? { ...props, key } : { key })`,
+              `    : R.createElement(type, props);`,
+              `}`,
               `export const Fragment = R.Fragment;`,
               `export default { jsx, jsxs, Fragment };`,
             ].join("\n"),
