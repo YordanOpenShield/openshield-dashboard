@@ -13,8 +13,8 @@ export default async function JobsLayout({
   if (!session) redirect("/login");
 
   return (
-    <div className="flex flex-col flex-1 bg-[#0a0a0a] pt-16">
-      <main className="flex-1 w-full max-w-6xl mx-auto p-6 sm:p-8 lg:p-10">
+    <div className="flex flex-col flex-1 bg-[#0a0a0a]">
+      <main className="flex-1 w-full p-6 sm:p-8 lg:p-10">
         {children}
       </main>
     </div>

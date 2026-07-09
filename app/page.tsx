@@ -14,7 +14,7 @@ export default async function Home() {
   }
 
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-[#0a0a0a] pt-16">
+    <div className="flex flex-col flex-1 items-center justify-center bg-[#0a0a0a]">
       {/* Subtle background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet-500/10 rounded-full blur-[120px]" />
