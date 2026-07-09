@@ -87,10 +87,10 @@ export interface PluginServerModule {
 // ─── Client Registry ────────────────────────────────────────────────────────
 
 export interface PluginClientRegistry {
-  registerPage: (name: string, component: React.ComponentType<any>) => void;
+  registerPage: (name: string, component: import("react").ComponentType<any>) => void;
   registerNavItem: (item: PluginNavigationItem) => void;
   registerActionHook: (hook: PluginActionHook) => void;
-  registerAdminSettingsComponent: (component: React.ComponentType<any>) => void;
+  registerAdminSettingsComponent: (component: import("react").ComponentType<any>) => void;
 }
 
 export interface PluginClientModule {
