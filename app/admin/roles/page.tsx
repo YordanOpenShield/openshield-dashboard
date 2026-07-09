@@ -14,14 +14,14 @@ interface CustomRole {
   updated_at: string;
 }
 
-// Available resources and their actions
-const AVAILABLE_PERMISSIONS = {
+// Fallback permissions if the API call fails (used during initial render)
+const FALLBACK_PERMISSIONS: Record<string, string[]> = {
   user: ["create", "list", "get", "update", "delete", "set-role", "ban", "impersonate", "impersonate-admins", "set-password", "set-email"],
   session: ["list", "revoke"],
   roles: ["list", "create", "update", "delete"],
   sso: ["read", "update"],
   dashboard: ["read"],
-} as const;
+};
 
 // ─── Modal Component ─────────────────────────────────────────────────────────
 
@@ -129,6 +129,7 @@ function PermissionToggle({
 export default function AdminRolesPage() {
   const [roles, setRoles] = useState<CustomRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [availablePermissions, setAvailablePermissions] = useState<Record<string, string[]>>(FALLBACK_PERMISSIONS);
 
   // Create modal state
   const [showCreate, setShowCreate] = useState(false);
@@ -151,7 +152,7 @@ export default function AdminRolesPage() {
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-  // ─── Fetch roles ───────────────────────────────────────────────────────────
+  // ─── Fetch roles and permissions ───────────────────────────────────────────
 
   const fetchRoles = useCallback(async () => {
     setIsLoading(true);
@@ -164,6 +165,20 @@ export default function AdminRolesPage() {
       setToast({ message: "Failed to load roles", type: "error" });
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  const fetchPermissions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/permissions");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.resources) {
+          setAvailablePermissions(data.resources);
+        }
+      }
+    } catch {
+      // Fallback permissions already set
     }
   }, []);
 
@@ -476,7 +491,7 @@ export default function AdminRolesPage() {
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Permissions</label>
             <div className="space-y-4 bg-[#0d0d0d] border border-white/10 rounded-lg p-4">
-              {Object.entries(AVAILABLE_PERMISSIONS).map(([resource, actions]) => (
+              {Object.entries(availablePermissions).map(([resource, actions]) => (
                 <div key={resource}>
                   <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">{resource}</h4>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -546,7 +561,7 @@ export default function AdminRolesPage() {
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Permissions</label>
             <div className="space-y-4 bg-[#0d0d0d] border border-white/10 rounded-lg p-4">
-              {Object.entries(AVAILABLE_PERMISSIONS).map(([resource, actions]) => (
+              {Object.entries(availablePermissions).map(([resource, actions]) => (
                 <div key={resource}>
                   <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">{resource}</h4>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

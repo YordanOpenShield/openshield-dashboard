@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AdminSidebarNav } from "@/components/admin-sidebar-nav";
 import { requirePermission, hasAnyAdminPermission } from "@/lib/permissions";
+import { getPluginRegistry } from "@/lib/plugins";
 
 export default async function AdminLayout({
   children,
@@ -27,11 +28,40 @@ export default async function AdminLayout({
   }
 
   // Check specific permissions for sidebar visibility
-  const [canViewUsers, canViewRoles, canManageSettings] = await Promise.all([
+  const [canViewUsers, canViewRoles, canManageSettings, canManagePlugins] = await Promise.all([
     requirePermission({ user: ["list"] }, hdrs),
     requirePermission({ roles: ["list"] }, hdrs),
     requirePermission({ sso: ["read"] }, hdrs),
+    requirePermission({ roles: ["list"] }, hdrs), // Plugins management uses same gate as roles
   ]);
+
+  // Get plugin admin nav items and their permissions
+  const registry = await getPluginRegistry();
+  const pluginAdminNav = await registry.getNavItems("admin");
+  const pluginPermissions = await registry.getPluginPermissions();
+
+  // Check which plugin nav items the user can see
+  const pluginNavItems = pluginAdminNav.map((item) => ({
+    href: item.href,
+    label: item.label,
+    permission: item.permission,
+  }));
+
+  // Build permission booleans for plugin permissions — admins always see all
+  const userRoles: string[] = ((session.user as any).role ?? "").split(",").map((r: string) => r.trim()).filter(Boolean);
+  const isAdmin = userRoles.includes("admin");
+
+  const pluginPermBooleans: Record<string, boolean> = {};
+  if (!isAdmin) {
+    // Only check permissions for non-admin users
+    for (const [resource, actions] of Object.entries(pluginPermissions)) {
+      for (const action of actions) {
+        const key = `${resource}:${action}`;
+        const perm = await requirePermission({ [resource]: [action] }, hdrs);
+        pluginPermBooleans[key] = perm.authorized;
+      }
+    }
+  }
 
   return (
     <div className="flex flex-1 bg-[#0a0a0a] pt-16">
@@ -47,6 +77,10 @@ export default async function AdminLayout({
           canViewUsers={canViewUsers.authorized}
           canViewRoles={canViewRoles.authorized}
           canManageSettings={canManageSettings.authorized}
+          canManagePlugins={canManagePlugins.authorized}
+          isAdmin={isAdmin}
+          pluginNavItems={pluginNavItems}
+          pluginPermissions={pluginPermBooleans}
         />
 
         <div className="px-3 pb-3">

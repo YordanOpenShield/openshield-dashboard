@@ -7,10 +7,12 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
-  permission: "users" | "roles" | "sso";
+  /** Permission key used by the host to determine visibility */
+  permission: string;
 }
 
-const navItems: NavItem[] = [
+/** Core admin nav items (always present) */
+const coreNavItems: NavItem[] = [
   {
     href: "/admin/users",
     label: "Users",
@@ -41,16 +43,47 @@ const navItems: NavItem[] = [
       </svg>
     ),
   },
+  {
+    href: "/admin/plugins",
+    label: "Plugins",
+    permission: "plugins",
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17l-5.94 5.94a2.12 2.12 0 01-3-3l5.94-5.94M13 3l6 6m-5-1v10" />
+      </svg>
+    ),
+  },
 ];
+
+/**
+ * Simple SVG icon component for plugin nav items that don't have a custom icon.
+ */
+function DefaultPluginIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17l-5.94 5.94a2.12 2.12 0 01-3-3l5.94-5.94M13 3l6 6m-5-1v10" />
+    </svg>
+  );
+}
 
 export function AdminSidebarNav({
   canViewUsers,
   canViewRoles,
   canManageSettings,
+  canManagePlugins = false,
+  isAdmin = false,
+  pluginNavItems = [],
+  pluginPermissions = {},
 }: {
   canViewUsers: boolean;
   canViewRoles: boolean;
   canManageSettings: boolean;
+  canManagePlugins?: boolean;
+  isAdmin?: boolean;
+  /** Plugin admin nav items passed from the server layout */
+  pluginNavItems?: { href: string; label: string; permission?: string }[];
+  /** Permission booleans for plugin items, keyed by permission string */
+  pluginPermissions?: Record<string, boolean>;
 }) {
   const pathname = usePathname();
 
@@ -58,12 +91,33 @@ export function AdminSidebarNav({
     users: canViewUsers,
     roles: canViewRoles,
     sso: canManageSettings,
+    plugins: canManagePlugins,
   };
+
+  // Build all nav items: core + plugin
+  const allItems: NavItem[] = [
+    ...coreNavItems,
+    ...pluginNavItems.map((p) => ({
+      href: p.href,
+      label: p.label,
+      permission: p.permission ?? "",
+      icon: <DefaultPluginIcon />,
+    })),
+  ];
 
   return (
     <nav className="flex-1 p-3 space-y-1">
-      {navItems
-        .filter((item) => canAccess[item.permission])
+      {allItems
+        .filter((item) => {
+          // Admins see all items regardless of plugin permissions
+          if (isAdmin) return true;
+          if (!item.permission) return true;
+          // Check core permissions
+          if (item.permission in canAccess) return canAccess[item.permission];
+          // Check plugin permissions
+          if (item.permission in pluginPermissions) return pluginPermissions[item.permission];
+          return true; // No permission check = always visible
+        })
         .map((item) => {
           const isActive = pathname.startsWith(item.href);
           return (
@@ -81,7 +135,12 @@ export function AdminSidebarNav({
             </Link>
           );
         })}
-      {navItems.filter((item) => canAccess[item.permission]).length === 0 && (
+      {allItems.filter((item) => {
+        if (!item.permission) return true;
+        if (item.permission in canAccess) return canAccess[item.permission];
+        if (item.permission in pluginPermissions) return pluginPermissions[item.permission];
+        return true;
+      }).length === 0 && (
         <p className="text-sm text-gray-600 px-3 py-2">No sections available</p>
       )}
     </nav>
