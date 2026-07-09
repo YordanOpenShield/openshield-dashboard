@@ -34,9 +34,10 @@ export async function scaffoldPlugin(options = {}) {
             dev: "plugin-builder build --skip-zip",
         },
         dependencies: {
-            "@openshield/plugin-sdk": "^1.0.0",
+            "@open_shield/plugin-sdk": "^1.0.2",
         },
         devDependencies: {
+            "@open_shield/plugin-builder": "^1.0.1",
             "typescript": "^5.0.0",
         },
     };
@@ -55,8 +56,8 @@ export async function scaffoldPlugin(options = {}) {
         include: ["src/**/*", "manifest.ts"],
     };
     fs.writeFileSync(path.join(pluginDir, "tsconfig.json"), JSON.stringify(tsconfig, null, 2));
-    // manifest.ts
-    const manifestTs = `import { createManifest } from "@openshield/plugin-sdk";
+    // manifest.ts (for type-checking during development)
+    const manifestTs = `import { createManifest } from "@open_shield/plugin-sdk";
 
 export default createManifest({
   id: "${pluginName}",
@@ -67,7 +68,7 @@ export default createManifest({
   requires: "^1.0.0",
 
   permissions: {
-    ${pluginName}: ["read"],
+    "${pluginName}": ["read"],
   },
 
   navigation: [
@@ -84,14 +85,36 @@ export default createManifest({
 });
 `;
     fs.writeFileSync(path.join(pluginDir, "manifest.ts"), manifestTs);
+    // manifest.json (for the builder — read directly without compilation)
+    const manifestJson = JSON.stringify({
+        id: pluginName,
+        name: pluginName.charAt(0).toUpperCase() + pluginName.slice(1) + " Plugin",
+        version: "1.0.0",
+        description: "Description of " + pluginName,
+        icon: "assets/icon.svg",
+        requires: "^1.0.0",
+        permissions: { [pluginName]: ["read"] },
+        navigation: [
+            { type: "main", label: pluginName.charAt(0).toUpperCase() + pluginName.slice(1), href: "/plugin/" + pluginName },
+        ],
+        pages: {
+            "": { component: "Dashboard", title: pluginName.charAt(0).toUpperCase() + pluginName.slice(1) },
+        },
+        api: {
+            data: { methods: ["GET"] },
+        },
+    }, null, 2);
+    fs.writeFileSync(path.join(pluginDir, "manifest.json"), manifestJson);
+    fs.writeFileSync(path.join(pluginDir, "manifest.ts"), manifestTs);
+    const safePluginName = pluginName.replace(/-/g, "_");
     // Server entry
-    const serverIndex = `import { definePlugin } from "@openshield/plugin-sdk";
+    const serverIndex = `import { definePlugin } from "@open_shield/plugin-sdk";
 
 export default definePlugin({
   async install(context) {
     // Create database tables
     await context.db.query(\`
-      CREATE TABLE IF NOT EXISTS ${pluginName}_data (
+      CREATE TABLE IF NOT EXISTS ${safePluginName}_data (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
@@ -99,12 +122,12 @@ export default definePlugin({
   },
 
   async uninstall(context) {
-    await context.db.query(\`DROP TABLE IF EXISTS ${pluginName}_data\`);
+    await context.db.query(\`DROP TABLE IF EXISTS ${safePluginName}_data\`);
   },
 
   api: {
     "data:GET": async (request, context) => {
-      const result = await context.db.query(\`SELECT * FROM ${pluginName}_data\`);
+      const result = await context.db.query(\`SELECT * FROM ${safePluginName}_data\`);
       return Response.json(result.rows);
     },
   },
@@ -112,7 +135,7 @@ export default definePlugin({
 `;
     fs.writeFileSync(path.join(pluginDir, "src", "server", "index.ts"), serverIndex);
     // Client entry
-    const clientIndex = `import { createPluginUI } from "@openshield/plugin-sdk";
+    const clientIndex = `import { createPluginUI } from "@open_shield/plugin-sdk";
 
 function Dashboard({ initialData }: { initialData: unknown }) {
   return (

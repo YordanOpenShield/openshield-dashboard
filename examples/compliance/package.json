@@ -8,7 +8,7 @@
     "dev": "node ../../packages/plugin-builder/dist/cli.js build --skip-zip"
   },
   "dependencies": {
-    "@openshield/plugin-sdk": "file:../../packages/plugin-sdk"
+    "@open_shield/plugin-sdk": "file:../../packages/plugin-sdk"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

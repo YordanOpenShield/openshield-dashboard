@@ -50,6 +50,9 @@ export async function installPluginFromZip(
   filename: string
 ): Promise<InstallPluginResult> {
   try {
+    // Ensure plugin tracking tables exist before proceeding
+    await ensurePluginTables();
+
     // 1. Extract the zip to a temp directory to validate structure
     const { extractZip } = await import("./zip-utils");
     const extracted = await extractZip(zipBuffer);
@@ -294,6 +297,45 @@ export interface MigrationResult {
 }
 
 /**
+ * Ensure the plugin tracking tables exist.
+ * Called automatically by runMigrations and installPluginFromZip.
+ */
+async function ensurePluginTables(): Promise<void> {
+  try {
+    const client = await pgPool.connect();
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS plugin_registry (
+          id VARCHAR(255) PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          version VARCHAR(50) NOT NULL,
+          description TEXT,
+          manifest JSONB NOT NULL,
+          enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          installed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          settings JSONB DEFAULT '{}'
+        )
+      `);
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS plugin_migrations (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          plugin_id VARCHAR(255) NOT NULL,
+          filename VARCHAR(500) NOT NULL,
+          hash VARCHAR(64) NOT NULL,
+          executed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(plugin_id, filename)
+        )
+      `);
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("[plugins] Failed to ensure plugin tables:", err);
+  }
+}
+
+/**
  * Run SQL migration files for a plugin.
  * Tracks execution in plugin_migrations table to prevent re-execution.
  */
@@ -302,6 +344,9 @@ export async function runMigrations(
   migrationFiles: string[],
   fileContents: Record<string, Buffer>
 ): Promise<MigrationResult> {
+  // Ensure plugin tracking tables exist (in case init-db wasn't run)
+  await ensurePluginTables();
+
   const executed: string[] = [];
 
   for (const filename of migrationFiles.sort()) {

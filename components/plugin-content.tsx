@@ -59,26 +59,29 @@ const pluginLoadCallbacks = new Map<string, Array<() => void>>();
 /**
  * Register a plugin module (called by the plugin's ui.js bundle).
  * This is exposed globally so plugin bundles can call it.
+ * Guarded with typeof check to avoid SSR errors.
  */
-(window as any).__registerPlugin = (pluginId: string, module: PluginModule) => {
-  pluginModules.set(pluginId, module);
+if (typeof window !== "undefined") {
+  (window as any).__registerPlugin = (pluginId: string, module: PluginModule) => {
+    pluginModules.set(pluginId, module);
 
-  const registry = new PluginClientRegistry();
-  try {
-    module.initialize(registry);
-    registry.markInitialized();
-  } catch (err) {
-    console.error(`[plugins] Failed to initialize "${pluginId}":`, err);
-  }
-  pluginRegistries.set(pluginId, registry);
+    const registry = new PluginClientRegistry();
+    try {
+      module.initialize(registry);
+      registry.markInitialized();
+    } catch (err) {
+      console.error(`[plugins] Failed to initialize "${pluginId}":`, err);
+    }
+    pluginRegistries.set(pluginId, registry);
 
-  // Fire any pending load callbacks
-  const callbacks = pluginLoadCallbacks.get(pluginId);
-  if (callbacks) {
-    for (const cb of callbacks) cb();
-    pluginLoadCallbacks.delete(pluginId);
-  }
-};
+    // Fire any pending load callbacks
+    const callbacks = pluginLoadCallbacks.get(pluginId);
+    if (callbacks) {
+      for (const cb of callbacks) cb();
+      pluginLoadCallbacks.delete(pluginId);
+    }
+  };
+}
 
 // ─── Hook ───────────────────────────────────────────────────────────────────
 

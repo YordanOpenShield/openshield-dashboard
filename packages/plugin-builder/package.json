@@ -1,6 +1,6 @@
 {
-  "name": "@openshield/plugin-builder",
-  "version": "1.0.0",
+  "name": "@open_shield/plugin-builder",
+  "version": "1.0.1",
   "description": "OpenShield Dashboard Plugin Builder — compile and package plugins for the dashboard",
   "type": "module",
   "main": "dist/index.js",
@@ -14,13 +14,26 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
   },
-  "keywords": ["openshield", "plugin", "builder"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YordanOpenShield/openshield-dashboard",
+    "directory": "packages/plugin-builder"
+  },
+  "keywords": ["openshield", "plugin", "builder", "cli"],
   "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/YordanOpenShield/openshield-dashboard/issues"
+  },
+  "homepage": "https://github.com/YordanOpenShield/openshield-dashboard/tree/main/packages/plugin-builder",
   "dependencies": {
     "adm-zip": "^0.5.16",
     "esbuild": "^0.25.0"
@@ -29,5 +42,8 @@
     "@types/adm-zip": "^0.5.7",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

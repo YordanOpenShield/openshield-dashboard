@@ -23,8 +23,14 @@ __export(index_exports, {
   default: () => index_default
 });
 module.exports = __toCommonJS(index_exports);
-var import_plugin_sdk = require("@openshield/plugin-sdk");
-var index_default = (0, import_plugin_sdk.definePlugin)({
+
+// ../../packages/plugin-sdk/dist/server.js
+function definePlugin(config) {
+  return config;
+}
+
+// src/server/index.ts
+var index_default = definePlugin({
   async install(context) {
     await context.db.query(`
       CREATE TABLE IF NOT EXISTS compliance_risks (

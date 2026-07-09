@@ -48,7 +48,11 @@ export default async function PluginPage({ params }: PageProps) {
   }
 
   // Check page-level permission
-  if (pageDef.permission) {
+  // Users with any admin role are granted access to all plugin pages.
+  const userRoles = ((session.user as any).role ?? "").split(",").map((r: string) => r.trim()).filter(Boolean);
+  const isAdmin = userRoles.includes("admin");
+
+  if (pageDef.permission && !isAdmin) {
     const [resource, action] = pageDef.permission.split(":");
     if (resource && action) {
       const auth = await requirePermission({ [resource]: [action] });

@@ -1,4 +1,4 @@
-import { createPluginUI } from "@openshield/plugin-sdk";
+import { createPluginUI } from "@open_shield/plugin-sdk";
 
 // ─── Dashboard Page ─────────────────────────────────────────────────────────
 

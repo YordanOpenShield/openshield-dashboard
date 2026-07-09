@@ -47,7 +47,7 @@ export async function buildPlugin(config = {}) {
     const clientOut = path.join(outDir, "client", "ui.js");
     if (fs.existsSync(clientSrc)) {
         console.log("  [3/5] Compiling client bundle...");
-        await compileClient(clientSrc, clientOut);
+        await compileClient(clientSrc, clientOut, manifest.id);
     }
     else {
         console.log("  [3/5] No client source found, skipping.");
@@ -139,31 +139,44 @@ async function compileServer(srcDir, outFile) {
         platform: "node",
         target: ["node18"],
         format: "cjs",
-        external: ["@openshield/plugin-sdk"],
+        // No externals — bundle everything including the SDK,
+        // since the dashboard doesn't have @openshield/plugin-sdk installed.
         sourcemap: false,
         minify: false,
     });
     const size = fs.statSync(outFile).size;
     console.log(`         ${path.basename(outFile)} (${formatSize(size)})`);
 }
-async function compileClient(srcDir, outFile) {
+async function compileClient(srcDir, outFile, pluginId) {
     const entryPoint = findEntryPoint(srcDir);
     if (!entryPoint) {
         throw new Error(`No entry point found in ${srcDir}. Create index.tsx, index.ts, index.jsx, or index.js.`);
     }
     fs.mkdirSync(path.dirname(outFile), { recursive: true });
+    // Compile to a temp file first, then wrap with registration
+    const tempOut = outFile + ".tmp";
     await esbuild.build({
         entryPoints: [entryPoint],
-        outfile: outFile,
+        outfile: tempOut,
         bundle: true,
         platform: "browser",
         target: ["es2020"],
         format: "iife",
         globalName: "__plugin_bundle",
-        external: ["react", "react-dom", "@openshield/plugin-sdk"],
+        jsx: "transform",
         sourcemap: false,
         minify: true,
     });
+    // Read the compiled bundle and wrap it with __registerPlugin
+    const bundle = fs.readFileSync(tempOut, "utf-8");
+    const wrapped = `(function(){${bundle}
+var _module = typeof __plugin_bundle !== "undefined" ? __plugin_bundle.default ?? __plugin_bundle : null;
+if (_module && typeof window !== "undefined" && window.__registerPlugin) {
+  window.__registerPlugin("${pluginId}", _module);
+}
+})();`;
+    fs.writeFileSync(outFile, wrapped);
+    fs.unlinkSync(tempOut);
     const size = fs.statSync(outFile).size;
     console.log(`         ${path.basename(outFile)} (${formatSize(size)})`);
 }

@@ -1,4 +1,4 @@
-import { definePlugin } from "@openshield/plugin-sdk";
+import { definePlugin } from "@open_shield/plugin-sdk";
 
 export default definePlugin({
   async install(context) {

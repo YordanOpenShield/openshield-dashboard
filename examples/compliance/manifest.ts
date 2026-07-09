@@ -1,4 +1,4 @@
-import { createManifest } from "@openshield/plugin-sdk";
+import { createManifest } from "@open_shield/plugin-sdk";
 
 export default createManifest({
   id: "compliance",
